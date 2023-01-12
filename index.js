@@ -43,6 +43,7 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     const usersCollection = client.db("freeMiumArticle").collection("users");
+    const articleCollection = client.db("freeMiumArticle").collection("homePosts");
 
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
@@ -114,6 +115,13 @@ async function run() {
       const adminUser = await usersCollection.findOne(query);
       res.send({ isAdmin: adminUser?.role === "admin" });
     });
+
+    app.get('/allArticles', async(req, res)=>{
+      const query = {};
+      const article = await articleCollection.find(query).toArray();
+      res.send(article);
+    })
+
   } finally {
   }
 }
