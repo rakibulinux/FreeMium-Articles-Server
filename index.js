@@ -36,6 +36,7 @@ function verifyJWT(req, res, next) {
   });
 }
 
+// root route
 app.get("/", (req, res) => {
   res.send(`FreeMium Articles running on port ${port}`);
 });
