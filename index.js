@@ -44,6 +44,7 @@ async function run() {
   try {
     const usersCollection = client.db("freeMiumArticle").collection("users");
     const articleCollection = client.db("freeMiumArticle").collection("homePosts");
+    const categoryButtonCollection = client.db("freeMiumArticle").collection("categoryItem");
 
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
@@ -120,6 +121,13 @@ async function run() {
       const query = {};
       const article = await articleCollection.find(query).toArray();
       res.send(article);
+    })
+
+    // category button api
+    app.get('/categoryButton', async(req, res)=>{
+      const query = {};
+      const categoryButton= await categoryButtonCollection.find(query).toArray();
+      res.send(categoryButton);
     })
 
   } finally {
