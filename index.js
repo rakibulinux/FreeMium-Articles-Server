@@ -43,6 +43,9 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     const usersCollection = client.db("freeMiumArticle").collection("users");
+    const addNewStoryCollection = client
+      .db("freeMiumArticle")
+      .collection("addNewStory");
     const articleCollection = client
       .db("freeMiumArticle")
       .collection("homePosts");
@@ -134,6 +137,13 @@ async function run() {
         .find(query)
         .toArray();
       res.send(categoryButton);
+    });
+
+    app.post("/add-story", async (req, res) => {
+      const body = req.body;
+      console.log(body);
+      const story = await articleCollection.insertOne(body);
+      res.send(story);
     });
   } finally {
   }
