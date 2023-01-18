@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 const app = express();
 const cors = require("cors");
@@ -44,6 +44,9 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     const usersCollection = client.db("freeMiumArticle").collection("users");
+    const addNewStoryCollection = client
+      .db("freeMiumArticle")
+      .collection("addNewStory");
     const articleCollection = client
       .db("freeMiumArticle")
       .collection("homePosts");
@@ -135,6 +138,19 @@ async function run() {
         .find(query)
         .toArray();
       res.send(categoryButton);
+    });
+
+    app.post("/add-story", async (req, res) => {
+      const body = req.body;
+      console.log(body);
+      const story = await articleCollection.insertOne(body);
+      res.send(story);
+    });
+    app.get("/view-story/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const story = await articleCollection.findOne(query);
+      res.send(story);
     });
   } finally {
   }
