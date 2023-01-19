@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion,ObjectId } = require("mongodb");
 const express = require("express");
 const app = express();
 const cors = require("cors");
@@ -76,7 +76,7 @@ async function run() {
     });
     // Update users
     app.put("/users/:email", async (req, res) => {
-      const email = req.params.email;
+      const email = req.params.email; 
       const user = req.body;
       const filter = { email: email };
       const option = { upsert: true };
@@ -107,8 +107,8 @@ async function run() {
       }
       res.status(401).send({ message: "Unauthorized" });
     });
-
-    // Get admin user permission
+ 
+    // Get admin user permission 
     app.get("/users/admin/:email", verifyJWT, verifyAdmin, async (req, res) => {
       const email = req.params.email;
       const query = { email };
@@ -122,6 +122,14 @@ async function run() {
       res.send(article);
     })
 
+    //data with article id
+    app.get('/view-story/:id', async(req, res)=>{
+      const id = req.params.id; 
+       const query = {_id: ObjectId(id)};
+       const result = await articleCollection.findOne(query);
+       res.send(result);
+    })
+
     // category button api
     app.get('/categoryButton', async(req, res)=>{
       const query = {};
@@ -130,11 +138,12 @@ async function run() {
     })
 
   } finally {
+
   }
-}
+} 
 
 run().catch((err) => console.error(err));
-
+ 
 // Connection
 app.listen(port, () => {
   console.log("API running in port: " + port);
