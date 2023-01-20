@@ -196,7 +196,7 @@ async function run() {
         ship_country: 'Bangladesh',
     };
 
-    // console.log(data);
+    
 
     const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
     sslcz.init(data).then(apiResponse => {
