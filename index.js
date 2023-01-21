@@ -33,7 +33,7 @@ function verifyJWT(req, res, next) {
     }
     req.decoded = decoded;
     next();
-  });
+  }); 
 }
 
 app.get("/", (req, res) => {
@@ -81,7 +81,7 @@ async function run() {
     })
     // Update users
     app.put("/users/:email", async (req, res) => {
-      const email = req.params.email; 
+      const email = req.params.email;
       const user = req.body;
       const filter = { email: email };
       const option = { upsert: true };
