@@ -152,7 +152,7 @@ async function run() {
       const story = await articleCollection.findOne(query);
       res.send(story);
     });
-  } finally {
+  } finally { 
   }
 }
 
