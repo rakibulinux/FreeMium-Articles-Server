@@ -161,9 +161,6 @@ async function run() {
       const story = await articleCollection.findOne(query);
       res.send(story);
     });
-<<<<<<< HEAD
-  } finally { 
-=======
 
     app.post("/payment", async(req, res)=>{
       const paymentUser = req.body
@@ -217,6 +214,7 @@ async function run() {
         // console.log('Redirecting to: ', GatewayPageURL)
     });
     // res.send(data)
+    // res.send(data)
     })
     app.post("/payment/success", async(req, res)=>{
       const {transactionId} = req.query;
@@ -249,7 +247,6 @@ async function run() {
     })
 
   } finally {
->>>>>>> 9cf08634061943527b72f306f9b04f66e88e72de
   }
 }
 
