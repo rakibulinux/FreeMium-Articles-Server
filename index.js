@@ -66,7 +66,6 @@ async function run() {
           verify: true,
         },
       };
-
       const updateUser = await usersCollection.updateOne(
         filter,
         updateDoc,
@@ -74,6 +73,12 @@ async function run() {
       );
       res.send(updateUser);
     });
+    // get user data
+    app.get("/user", async(req, res)=>{
+      const query ={};
+      const result = await usersCollection.find(query).limit(6).toArray();
+      res.send(result);
+    })
     // Update users
     app.put("/users/:email", async (req, res) => {
       const email = req.params.email; 
