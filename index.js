@@ -255,7 +255,8 @@ async function run() {
           $push:{
               follower:req.body.follow          
            }
-      }   
+      } 
+       
       const result = await usersCollection.updateOne(filter,follower,options)
 
       // follwoing
@@ -277,26 +278,26 @@ app.put('/unfollows/:userId',async(req,res)=>{
   const userId = req.params.userId;     
   
   const filter= {userId}      
-  // const options = { upsert: true };
+  const options = { upsert: true };
   const follower = {
       $pull:{
           follower:req.body.unfollow          
        }
     } 
-  const result = await usersCollection.update(filter, follower)
+  const result = await usersCollection.updateOne(filter, follower,options)
 
   // unfollwoing
   const email =req.body.unfollow;
   
   const filter2= {email:email}
-  // const options2 = { upsert: true };
+  const options2 = { upsert: true };
   const userId2 = req.params.userId;
   const follow2 = {
       $pull:{
           following:userId2          
        }
   }   
-  const result2 = await usersCollection.update(filter2,follow2)
+  const result2 = await usersCollection.updateOne(filter2,follow2,options2)
   res.send(result)     
 })
 
