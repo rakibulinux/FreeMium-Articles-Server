@@ -5,7 +5,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT;
-
+const mongoose = require('mongoose');
 // middlewares
 app.use(cors());
 app.use(express.json());
@@ -14,13 +14,13 @@ app.use(express.json());
 
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri, {
-  useNewUrlParser: true,
+  useNewUrlParser: true, 
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
 
 //Verify JWT function
-function verifyJWT(req, res, next) {
+function verifyJWT(req, res, next) { 
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -52,7 +52,7 @@ async function run() {
       const query = { email: decodedEmail };
       const admin = await usersCollection.findOne(query);
       if (admin?.role !== "admin") {
-        return res.status(403).send(`You dosen't have access to edit this`);
+        return res.status(403).send(`You dose't have access to edit this`);
       }
       next();
     };
@@ -79,8 +79,16 @@ async function run() {
       const result = await usersCollection.find(query).limit(6).toArray();
       res.send(result);
     })
+    // Get Data category name
+    app.get('/category/:name', async(req, res)=>{
+      const categoryName = req.params.name;
+      const query = {category: categoryName};
+      // console.log(typeof(categoryName));
+      const result = await articleCollection.find(query).toArray();
+      res.send(result);
+    })
     // Update users
-    app.put("/users/:email", async (req, res) => {
+    app.put("/users/:email", async (req, res) =>{ 
       const email = req.params.email;
       const user = req.body;
       const filter = { email: email };
