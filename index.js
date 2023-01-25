@@ -245,7 +245,68 @@ async function run() {
         res.redirect(`${process.env.CLIENT_URL}/fail`)
       }
     })
+// followwer and folloing
+    app.put('/follows/:userId',async(req,res)=>{
+      const userId = req.params.userId;     
+      
+      const filter= {userId}      
+      const options = { upsert: true };
+      const follower = {
+          $push:{
+              follower:req.body.follow          
+           }
+      }   
+      const result = await usersCollection.updateOne(filter,follower,options)
 
+      // follwoing
+      const email =req.body.follow;
+      console.log(email) 
+      const filter2= {email:email}
+      const options2 = { upsert: true };
+      const userId2 = req.params.userId;
+      const follow2 = {
+          $push:{
+              following:userId2          
+           }
+      }   
+      const result2 = await usersCollection.updateOne(filter2,follow2,options2)
+      res.send(result)     
+  })
+// unfollowwer and unfolloing
+app.put('/unfollows/:userId',async(req,res)=>{
+  const userId = req.params.userId;     
+  
+  const filter= {userId}      
+  // const options = { upsert: true };
+  const follower = {
+      $pull:{
+          follower:req.body.unfollow          
+       }
+    } 
+  const result = await usersCollection.update(filter, follower)
+
+  // unfollwoing
+  const email =req.body.unfollow;
+  
+  const filter2= {email:email}
+  // const options2 = { upsert: true };
+  const userId2 = req.params.userId;
+  const follow2 = {
+      $pull:{
+          following:userId2          
+       }
+  }   
+  const result2 = await usersCollection.update(filter2,follow2)
+  res.send(result)     
+})
+
+// get specific user by user email
+app.get('/user/:userId',async(req,res)=>{
+  const email= req.params.userId;
+  const query = {email:email}
+  const user = await usersCollection.findOne(query);
+  res.send(user)
+})
   } finally {
   }
 }
