@@ -82,12 +82,12 @@ async function run() {
     // Get Data category name
     app.get('/category/:name', async(req, res)=>{
       const categoryName = req.params.name;
-      const query = {category: categoryName};
+      const query = {category: categoryName}; 
       // console.log(typeof(categoryName));
       const result = await articleCollection.find(query).toArray();
-      res.send(result);
-    })
-    // Update users
+      res.send([{'categoryName':categoryName},result]);
+    })  
+    // Update users 
     app.put("/users/:email", async (req, res) =>{ 
       const email = req.params.email;
       const user = req.body;
