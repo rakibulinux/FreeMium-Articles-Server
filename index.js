@@ -134,7 +134,7 @@ async function run() {
       const article = await articleCollection.find(query).toArray();
       res.send(article);
     })
-
+//  fdf
     //data with article id
     app.get('/view-story/:id', async(req, res)=>{
       const id = req.params.id; 
