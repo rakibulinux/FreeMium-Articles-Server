@@ -168,7 +168,7 @@ async function run() {
       const data = {
         total_amount: paymentUser.price,
         currency: 'BDT',
-        tran_id:transactionId , // use unique tran_id for each api call
+        tran_id:transactionId , 
         success_url: `${process.env.SERVER_URL}/payment/success?transactionId=${transactionId}`,
         fail_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
         cancel_url: 'http://localhost:5000/payment/cancel',
