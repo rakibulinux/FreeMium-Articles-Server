@@ -238,6 +238,87 @@ async function run() {
         );
       }
     });
+
+    app.get("/payment-user/:id", async (req, res) => {
+      const { id } = req.params;
+
+      const user = await paymentCollection.findOne({ transactionId: id });
+      res.send(user);
+    });
+
+    app.post("/payment/fail", async (req, res) => {
+      const { transactionId } = req.query;
+      if (!transactionId) {
+        return res.redirect(`${process.env.CLIENT_URL}/fail`);
+      }
+      const result = await paymentCollection.deleteOne({ transactionId });
+      if (result.deletedCount) {
+        res.redirect(`${process.env.CLIENT_URL}/fail`);
+      }
+    });
+
+    // get specific user by user email
+    app.get("/user/:userId", async (req, res) => {
+      const email = req.params.userId;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      res.send(user);
+    });
+
+    app.post("/users/follow", (req, res) => {
+      const userId = req.body.userId;
+      console.log(userId);
+      const followingId = req.body.followingId;
+      console.log(followingId);
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $addToSet: { following: followingId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully followed user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/unfollow", (req, res) => {
+      const userId = req.body.userId;
+      const unfollowingId = req.body.unfollowingId;
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $pull: { following: unfollowingId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully unfollowed user" });
+          }
+        }
+      );
+    });
+
+    app.get("/users/:userId/following/:followingId", (req, res) => {
+      const userId = req.params.userId;
+      const followingId = req.params.followingId;
+      console.log(userId);
+      console.log(followingId);
+      usersCollection.findOne(
+        { _id: ObjectId(userId), following: followingId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ isFollowing: true });
+            } else {
+              res.status(200).send({ isFollowing: false });
+            }
+          }
+        }
+      );
+    });
   } finally {
   }
 }
