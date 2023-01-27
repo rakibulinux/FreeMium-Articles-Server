@@ -275,7 +275,7 @@ async function run() {
       const user = await usersCollection.findOne(query);
       res.send(user);
     });
-
+    //User follow section
     app.post("/users/follow", (req, res) => {
       const userId = req.body.userId;
       console.log(userId);
