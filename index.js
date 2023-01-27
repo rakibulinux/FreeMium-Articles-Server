@@ -166,7 +166,7 @@ async function run() {
       const paymentUser = req.body
       const transactionId = new ObjectId().toString()
       const data = {
-        total_amount: paymentUser.price,
+        total_amount:  paymentUser.price,
         currency: 'BDT',
         tran_id:transactionId , 
         success_url: `${process.env.SERVER_URL}/payment/success?transactionId=${transactionId}`,
@@ -207,7 +207,7 @@ async function run() {
           name: paymentUser.name,
           email: paymentUser.email,
           phone: paymentUser.phone,
-          amount: paymentUser.price,
+          amount:  paymentUser.price,
           transactionId,
           paid: false
         })
