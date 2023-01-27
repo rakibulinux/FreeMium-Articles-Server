@@ -5,7 +5,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT;
-const mongoose = require("mongoose");
+
 // middlewares
 app.use(cors());
 app.use(express.json());
