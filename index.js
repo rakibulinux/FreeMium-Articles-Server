@@ -171,7 +171,7 @@ async function run() {
         tran_id: transactionId, // use unique tran_id for each api call
         success_url: `${process.env.SERVER_URL}/payment/success?transactionId=${transactionId}`,
         fail_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
-        cancel_url: "http://localhost:5000/payment/cancel",
+        cancel_url: `${process.env.SERVER_URL}/payment/cancel`,
         ipn_url: "http://localhost:3030/ipn",
         shipping_method: "Courier",
         product_name: "Computer.",
@@ -249,87 +249,6 @@ async function run() {
         res.redirect(`${process.env.CLIENT_URL}/fail`);
       }
     });
-    // // followwer and folloing
-    //     app.put('/follows/:userId',async(req,res)=>{
-    //       const userId = req.params.userId;
-
-    //       const filter= {userId}
-    //       const options = { upsert: true };
-    //       const follower = {
-    //           $push:{
-    //               follower:req.body.follow
-    //            }
-    //       }
-
-    //       const result = await usersCollection.updateOne(filter,follower,options)
-
-    //       // follwoing
-    //       const email =req.body.follow;
-    //       console.log(email)
-    //       const filter2= {email:email}
-    //       const options2 = { upsert: true };
-    //       const userId2 = req.params.userId;
-    //       const follow2 = {
-    //           $push:{
-    //               following:userId2
-    //            }
-    //       }
-    //       const result2 = await usersCollection.updateOne(filter2,follow2,options2)
-    //       res.send(result)
-    //   })
-    // // unfollowwer and unfolloing
-    // app.put('/unfollows/:userId',async(req,res)=>{
-    //   const userId = req.params.userId;
-
-    //   const filter= {userId}
-    //   const options = { upsert: true };
-    //   const follower = {
-    //       $pull:{
-    //           follower:req.body.unfollow
-    //        }
-    //     }
-    //   const result = await usersCollection.updateOne(filter, follower,options)
-
-    //   // unfollwoing
-    //   const email =req.body.unfollow;
-
-    //   const filter2= {email:email}
-    //   const options2 = { upsert: true };
-    //   const userId2 = req.params.userId;
-    //   const follow2 = {
-    //       $pull:{
-    //           following:userId2
-    //        }
-    //   }
-    //   const result2 = await usersCollection.updateOne(filter2,follow2,options2)
-    //   res.send(result)
-    // })
-
-    // // Follow a user
-    // app.post("/follow/:id", async (req, res) => {
-    //   try {
-    //     const user = await usersCollection.findById(req.params.id);
-    //     if (!user) return res.status(404).send({ message: "User not found" });
-    //     user.followers.push(req.user._id);
-    //     await user.save();
-    //     res.status(200).send({ message: "User followed" });
-    //   } catch (error) {
-    //     res.status(500).send(error);
-    //   }
-    // });
-
-    // // Unfollow a user
-    // app.delete("/unfollow/:id", async (req, res) => {
-    //   try {
-    //     const user = await usersCollection.findById(req.params.id);
-    //     if (!user) return res.status(404).send({ message: "User not found" });
-    //     user.followers.pull(req.user._id);
-    //     await user.save();
-    //     res.status(200).send({ message: "User unfollowed" });
-    //   } catch (error) {
-    //     res.status(500).send(error);
-    //   }
-    // });
 
     // get specific user by user email
     app.get("/user/:userId", async (req, res) => {
@@ -338,6 +257,41 @@ async function run() {
       const user = await usersCollection.findOne(query);
       res.send(user);
     });
+
+    app.post("/users/follow", (req, res) => {
+      const userId = req.body.userId;
+      console.log(userId);
+      const followingId = req.body.followingId;
+      console.log(followingId);
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $addToSet: { following: followingId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully followed user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/unfollow", (req, res) => {
+      const userId = req.body.userId;
+      const unfollowingId = req.body.unfollowingId;
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $pull: { following: unfollowingId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully unfollowed user" });
+          }
+        }
+      );
+    });
+
     app.get("/users/:userId/following/:followingId", (req, res) => {
       const userId = req.params.userId;
       const followingId = req.params.followingId;
@@ -363,84 +317,6 @@ async function run() {
 }
 
 run().catch((err) => console.error(err));
-
-// const usersCollection = client.db("freeMiumArticle").collection("users");
-app.post("/users/follow", (req, res) => {
-  MongoClient.connect(uri, { useUnifiedTopology: true }, (err, client) => {
-    if (err) {
-      res.status(500).send({ error: "Error connecting to the database" });
-    } else {
-      const db = client.db("freeMiumArticle");
-      const userId = req.body.userId;
-      console.log(userId);
-      const followingId = req.body.followingId;
-      console.log(followingId);
-      db.collection("users").updateOne(
-        { _id: ObjectId(userId) },
-        { $addToSet: { following: followingId } },
-        (error, result) => {
-          if (error) {
-            res.status(500).send({ error: "Error updating user" });
-          } else {
-            res.status(200).send({ message: "Successfully followed user" });
-          }
-          client.close();
-        }
-      );
-    }
-  });
-});
-
-app.post("/users/unfollow", (req, res) => {
-  MongoClient.connect(uri, { useUnifiedTopology: true }, (err, client) => {
-    if (err) {
-      res.status(500).send({ error: "Error connecting to the database" });
-    } else {
-      const db = client.db("freeMiumArticle");
-      const userId = req.body.userId;
-      const unfollowingId = req.body.unfollowingId;
-      db.collection("users").updateOne(
-        { _id: ObjectId(userId) },
-        { $pull: { following: unfollowingId } },
-        (error, result) => {
-          if (error) {
-            res.status(500).send({ error: "Error updating user" });
-          } else {
-            res.status(200).send({ message: "Successfully unfollowed user" });
-          }
-          client.close();
-        }
-      );
-    }
-  });
-});
-
-// app.get("/users/:userId/following/:followingId", (req, res) => {
-//   MongoClient.connect(uri, { useUnifiedTopology: true }, (err, client) => {
-//     if (err) {
-//       res.status(500).send({ error: "Error connecting to the database" });
-//     } else {
-//       const db = client.db("freeMiumArticle");
-//       const userId = req.params.userId;
-//       const followingId = req.params.followingId;
-//       db.collection("users").findOne(
-//         { _id: ObjectId(userId), following: followingId },
-//         (error, result) => {
-//           if (error) {
-//             res.status(500).send({ error: "Error fetching user" });
-//           } else {
-//             if (result) {
-//               res.status(200).send({ isFollowing: true });
-//             } else {
-//               res.status(200).send({ isFollowing: false });
-//             }
-//           }
-//           client.close();
-//         }
-//       );
-//     }
-//   });
-// });
 
 // Connection
 app.listen(port, () => {
