@@ -156,7 +156,6 @@ async function run() {
 } 
 // 
 run().catch((err) => console.error(err));
- 
 // Connection
 app.listen(port, () => {
   console.log("API running in port: " + port);
