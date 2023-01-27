@@ -4,14 +4,19 @@ const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const SSLCommerzPayment = require("sslcommerz-lts");
 const port = process.env.PORT;
 
 // middlewares
 app.use(cors());
 app.use(express.json());
 
-// Mongo DB Connections
+// sslcommerz
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASSWORD;
+const is_live = false; //true for live, false for sandbox
 
+// Mongo DB Connections
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
@@ -43,12 +48,18 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     const usersCollection = client.db("freeMiumArticle").collection("users");
+    const addNewStoryCollection = client
+      .db("freeMiumArticle")
+      .collection("addNewStory");
     const articleCollection = client
       .db("freeMiumArticle")
       .collection("homePosts");
     const categoryButtonCollection = client
       .db("freeMiumArticle")
       .collection("categoryItem");
+    const paymentCollection = client
+      .db("freeMiumArticle")
+      .collection("payment");
 
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
