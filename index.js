@@ -61,6 +61,8 @@ async function run() {
       next();
     };
 
+
+  // user route
     app.put("/user/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
