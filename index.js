@@ -180,6 +180,19 @@ async function run() {
       res.send(story);
     });
 
+    // Search route
+    app.get("/search", async (req, res) => {
+      try {
+        const query = req.query.q;
+        const results = await articleCollection
+          .find({ $text: { $search: query } })
+          .toArray();
+        res.json(results);
+      } catch (err) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
     app.post("/payment", async (req, res) => {
       const paymentUser = req.body;
       const transactionId = new ObjectId().toString();
