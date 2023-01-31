@@ -1,11 +1,11 @@
-const { MongoClient, ServerApiVersion,ObjectId } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT;
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
 // middlewares
 app.use(cors());
 app.use(express.json());
@@ -14,13 +14,13 @@ app.use(express.json());
 
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri, {
-  useNewUrlParser: true, 
+  useNewUrlParser: true,
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
 
 //Verify JWT function
-function verifyJWT(req, res, next) { 
+function verifyJWT(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -33,7 +33,7 @@ function verifyJWT(req, res, next) {
     }
     req.decoded = decoded;
     next();
-  }); 
+  });
 }
 
 app.get("/", (req, res) => {
@@ -74,21 +74,21 @@ async function run() {
       res.send(updateUser);
     });
     // get user data
-    app.get("/user", async(req, res)=>{
-      const query ={};
+    app.get("/user", async (req, res) => {
+      const query = {};
       const result = await usersCollection.find(query).limit(6).toArray();
       res.send(result);
     })
     // Get Data category name
-    app.get('/category/:name', async(req, res)=>{
+    app.get('/category/:name', async (req, res) => {
       const categoryName = req.params.name;
-      const query = {category: categoryName};
+      const query = { category: categoryName };
       // console.log(typeof(categoryName));
       const result = await articleCollection.find(query).toArray();
-      res.send([{"categoryName":categoryName}, result]);
+      res.send([{ "categoryName": categoryName }, result]);
     })
     // Update users
-    app.put("/users/:email", async (req, res) =>{ 
+    app.put("/users/:email", async (req, res) => {
       const email = req.params.email;
       const user = req.body;
       const filter = { email: email };
@@ -120,7 +120,7 @@ async function run() {
       }
       res.status(401).send({ message: "Unauthorized" });
     });
- 
+
     // Get admin user permission 
     app.get("/users/admin/:email", verifyJWT, verifyAdmin, async (req, res) => {
       const email = req.params.email;
@@ -129,34 +129,34 @@ async function run() {
       res.send({ isAdmin: adminUser?.role === "admin" });
     });
 
-    app.get('/allArticles', async(req, res)=>{
+    app.get('/allArticles', async (req, res) => {
       const query = {};
       const article = await articleCollection.find(query).toArray();
       res.send(article);
     })
 
     //data with article id
-    app.get('/view-story/:id', async(req, res)=>{
-      const id = req.params.id; 
-       const query = {_id: ObjectId(id)};
-       const result = await articleCollection.findOne(query);
-       res.send(result);
+    app.get('/view-story/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await articleCollection.findOne(query);
+      res.send(result);
     })
 
     // category button api
-    app.get('/categoryButton', async(req, res)=>{
+    app.get('/categoryButton', async (req, res) => {
       const query = {};
-      const categoryButton= await categoryButtonCollection.find(query).toArray();
+      const categoryButton = await categoryButtonCollection.find(query).toArray();
       res.send(categoryButton);
     })
 
   } finally {
 
   }
-} 
+}
 // 
 run().catch((err) => console.error(err));
- 
+
 // Connection
 app.listen(port, () => {
   console.log("API running in port: " + port);
