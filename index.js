@@ -74,6 +74,8 @@ async function run() {
       next();
     };
 
+
+  // user route
     app.put("/user/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
@@ -372,6 +374,64 @@ async function run() {
           }
         });
     });
+
+// subscribe writter
+    app.post("/users/subscrib", (req, res) => {
+      const userId = req.body.userId;
+      
+      const subscribId = req.body.subscribId;
+      
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $addToSet: { subscrib: subscribId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully followed user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/unsubscrib", (req, res) => {
+      const userId = req.body.userId;
+      const unsubscribId = req.body.unsubscribId;
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $pull: { subscrib: unsubscribId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully unfollowed user" });
+          }
+        }
+      );
+    });
+
+    app.get("/users/:userId/subscrib/:subscribId", (req, res) => {
+      const userId = req.params.userId;
+      const subscribId = req.params.subscribId;
+      console.log(userId);
+      console.log(subscribId);
+      usersCollection.findOne(
+        { _id: ObjectId(userId), subscrib: subscribId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ isSubscrib: true });
+            } else {
+              res.status(200).send({ isSubscrib: false });
+            }
+          }
+        }
+      );
+    });
+
+
   } finally {
   }
 }
