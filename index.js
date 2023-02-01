@@ -74,8 +74,7 @@ async function run() {
       next();
     };
 
-
-  // user route
+    // user route
     app.put("/user/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
@@ -375,12 +374,12 @@ async function run() {
         });
     });
 
-// subscribe writter
+    // subscribe writter
     app.post("/users/subscrib", (req, res) => {
       const userId = req.body.userId;
-      
+
       const subscribId = req.body.subscribId;
-      
+
       usersCollection.updateOne(
         { _id: ObjectId(userId) },
         { $addToSet: { subscrib: subscribId } },
@@ -430,8 +429,6 @@ async function run() {
         }
       );
     });
-
-
   } finally {
   }
 }
