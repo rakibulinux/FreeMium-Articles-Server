@@ -74,8 +74,7 @@ async function run() {
       next();
     };
 
-
-  // user route
+    // user route
     app.put("/user/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
@@ -93,9 +92,21 @@ async function run() {
       res.send(updateUser);
     });
     // get user data
+    app.get("/all-users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+    // get user data
     app.get("/user", async (req, res) => {
       const query = {};
       const result = await usersCollection.find(query).limit(6).toArray();
+      res.send(result);
+    });
+    // get three user data
+    app.get("/three-users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).limit(3).toArray();
       res.send(result);
     });
     // Get Data category name
@@ -375,12 +386,12 @@ async function run() {
         });
     });
 
-// subscribe writter
+    // subscribe writter
     app.post("/users/subscrib", (req, res) => {
       const userId = req.body.userId;
-      
+
       const subscribId = req.body.subscribId;
-      
+
       usersCollection.updateOne(
         { _id: ObjectId(userId) },
         { $addToSet: { subscrib: subscribId } },
@@ -430,8 +441,6 @@ async function run() {
         }
       );
     });
-
-
   } finally {
   }
 }
