@@ -178,8 +178,7 @@ category api
 ========================= */
 // create new category
 app.post('/addNewCategory',async(req,res)=>{
-    const category = req.body; 
-    console.log(category)   
+    const category = req.body;   
     const result= await categoryButtonCollection.insertOne(category);    
     res.send(result)
 });
@@ -200,7 +199,6 @@ app.post('/addNewCategory',async(req,res)=>{
 // store api
     app.post("/add-story", async (req, res) => {
       const body = req.body;
-      console.log(body);
       const story = await articleCollection.insertOne(body);
       res.send(story);
     });
@@ -419,7 +417,7 @@ app.post('/addNewCategory',async(req,res)=>{
           if (error) {
             res.status(500).send({ error: "Error updating user" });
           } else {
-            res.status(200).send({ message: "Successfully followed user" });
+            res.status(200).send({ message: "Successfully subscrib user" });
           }
         }
       );
@@ -435,7 +433,7 @@ app.post('/addNewCategory',async(req,res)=>{
           if (error) {
             res.status(500).send({ error: "Error updating user" });
           } else {
-            res.status(200).send({ message: "Successfully unfollowed user" });
+            res.status(200).send({ message: "Successfully unsubscrib user" });
           }
         }
       );
@@ -444,8 +442,6 @@ app.post('/addNewCategory',async(req,res)=>{
     app.get("/users/:userId/subscrib/:subscribId", (req, res) => {
       const userId = req.params.userId;
       const subscribId = req.params.subscribId;
-      // console.log(userId);
-      // console.log(subscribId);
       usersCollection.findOne(
         { _id: ObjectId(userId), subscrib: subscribId },
         (error, result) => {
@@ -461,6 +457,41 @@ app.post('/addNewCategory',async(req,res)=>{
         }
       );
     });
+
+/*=======================
+all reportedItems api
+========================
+*/
+
+//  reported story 
+app.put('/story/reportedStory/:id',async(req,res)=>{
+  const id = req.params.id;
+  const filter = {_id:ObjectId(id)}   
+  const options = {upsert:true}
+  const updatedDoc = {
+      $set:{
+          report :'true'
+      }
+  }
+  const result= await articleCollection.updateOne(filter,updatedDoc,options);
+  res.send(result)
+})
+// get all reportedItems
+
+app.get('/reportedItem',async(req,res)=>{  
+  const query ={"report":"true"}
+  const reportedItems = await articleCollection.find(query).toArray();
+  res.send(reportedItems)
+  
+})
+
+// delete reported itme
+app.delete('/Story/reportedStory/:id',async(req,res)=>{
+  const id = req.params.id;
+  const filter = {_id:ObjectId(id)}
+  const result = await articleCollection.deleteOne(filter);
+  res.send(result)
+})
   } finally {
   }
 }
