@@ -56,6 +56,7 @@ async function run() {
       next();
     };
 
+    // user route
     app.put("/user/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
@@ -73,11 +74,23 @@ async function run() {
       res.send(updateUser);
     });
     // get user data
+    app.get("/all-users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+    // get user data
     app.get("/user", async (req, res) => {
       const query = {};
       const result = await usersCollection.find(query).limit(6).toArray();
       res.send(result);
-    })
+    });
+    // get three user data
+    app.get("/three-users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).limit(3).toArray();
+      res.send(result);
+    });
     // Get Data category name
     app.get('/category/:name', async (req, res) => {
       const categoryName = req.params.name;
@@ -228,6 +241,89 @@ async function run() {
       }
     })
 
+    // Handle socket connection
+    io.on("connection", (socket) => {
+      console.log("Client connected");
+    });
+
+    // Handle new notification
+    app.post("/notifications", (req, res) => {
+      const notification = req.body;
+      notificationCollection.insertOne(notification, (err, result) => {
+        if (err) throw err;
+        io.emit("notification", notification);
+        res.status(201).send(`Notification inserted: ${result.ops[0]._id}`);
+      });
+    });
+
+    app.get("/notifications/:userId", (req, res) => {
+      notificationCollection
+        .find({ userId: req.params.userId })
+        .toArray((err, notifications) => {
+          if (err) {
+            console.log(err);
+            res.status(500).send(err);
+          } else {
+            res.status(200).send(notifications);
+          }
+        });
+    });
+
+    // subscribe writter
+    app.post("/users/subscrib", (req, res) => {
+      const userId = req.body.userId;
+
+      const subscribId = req.body.subscribId;
+
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $addToSet: { subscrib: subscribId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully followed user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/unsubscrib", (req, res) => {
+      const userId = req.body.userId;
+      const unsubscribId = req.body.unsubscribId;
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $pull: { subscrib: unsubscribId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully unfollowed user" });
+          }
+        }
+      );
+    });
+
+    app.get("/users/:userId/subscrib/:subscribId", (req, res) => {
+      const userId = req.params.userId;
+      const subscribId = req.params.subscribId;
+      console.log(userId);
+      console.log(subscribId);
+      usersCollection.findOne(
+        { _id: ObjectId(userId), subscrib: subscribId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ isSubscrib: true });
+            } else {
+              res.status(200).send({ isSubscrib: false });
+            }
+          }
+        }
+      );
+    });
   } finally {
 
   }
