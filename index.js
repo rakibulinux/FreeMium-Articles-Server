@@ -13,10 +13,10 @@ const port = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
-// sslcommerz
-const store_id = process.env.STORE_ID;
-const store_passwd = process.env.STORE_PASSWORD;
-const is_live = false; //true for live, false for sandbox
+// sslcommerz 
+const store_id = process.env.STORE_ID
+const store_passwd = process.env.STORE_PASSWORD
+const is_live = false //true for live, false for sandbox
 
 // Mongo DB Connections
 const uri = process.env.MONGODB_URI;
@@ -313,7 +313,7 @@ app.post('/addNewCategory',async(req,res)=>{
         tran_id: transactionId,
         success_url: `${process.env.SERVER_URL}/payment/success?transactionId=${transactionId}`,
         fail_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
-        cancel_url: `${process.env.SERVER_URL}/payment/cancel`,
+        cancel_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
         ipn_url: "http://localhost:3030/ipn",
         shipping_method: "Courier",
         product_name: "Computer.",
@@ -372,6 +372,10 @@ app.post('/addNewCategory',async(req,res)=>{
           `${process.env.CLIENT_URL}/success?transactionId=${transactionId}`
         );
       }
+    });
+
+    app.post("/payment/cancel", async (req, res) => {
+        return res.redirect(`${process.env.CLIENT_URL}/fail`);
     });
 
     // Handle socket connection
@@ -440,8 +444,8 @@ app.post('/addNewCategory',async(req,res)=>{
     app.get("/users/:userId/subscrib/:subscribId", (req, res) => {
       const userId = req.params.userId;
       const subscribId = req.params.subscribId;
-      console.log(userId);
-      console.log(subscribId);
+      // console.log(userId);
+      // console.log(subscribId);
       usersCollection.findOne(
         { _id: ObjectId(userId), subscrib: subscribId },
         (error, result) => {
