@@ -5,7 +5,6 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT;
-const mongoose = require('mongoose');
 // middlewares
 app.use(cors());
 app.use(express.json());
@@ -41,7 +40,7 @@ app.get("/", (req, res) => {
 });
 
 async function run() {
-  try {
+  try { 
     const usersCollection = client.db("freeMiumArticle").collection("users");
     const articleCollection = client.db("freeMiumArticle").collection("homePosts");
     const categoryButtonCollection = client.db("freeMiumArticle").collection("categoryItem");
