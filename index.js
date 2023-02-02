@@ -173,15 +173,31 @@ async function run() {
       res.send(result);
     });
 
+/*========================
+category api
+========================= */
+// create new category
+app.post('/addNewCategory',async(req,res)=>{
+    const category = req.body; 
+    console.log(category)   
+    const result= await categoryButtonCollection.insertOne(category);    
+    res.send(result)
+});
     // category button api
     app.get("/categoryButton", async (req, res) => {
       const query = {};
-      const categoryButton = await categoryButtonCollection
-        .find(query)
-        .toArray();
+      const categoryButton = await categoryButtonCollection.find(query).toArray();
       res.send(categoryButton);
     });
+    // delete category
+    app.delete('/categoryButton/:id',async(req,res)=>{
+      const id = req.params.id;
+      const filter = {_id:ObjectId(id)}
+      const result = await categoryButtonCollection.deleteOne(filter);
+      res.send(result)
+  })
 
+// store api
     app.post("/add-story", async (req, res) => {
       const body = req.body;
       console.log(body);
