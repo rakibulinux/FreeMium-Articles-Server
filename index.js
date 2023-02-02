@@ -286,7 +286,7 @@ async function run() {
         tran_id:transactionId , 
         success_url: `${process.env.SERVER_URL}/payment/success?transactionId=${transactionId}`,
         fail_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
-        cancel_url: `${process.env.SERVER_URL}/payment/cancel`,
+        cancel_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
         ipn_url: "http://localhost:3030/ipn",
         shipping_method: "Courier",
         product_name: "Computer.",
@@ -413,8 +413,8 @@ async function run() {
     app.get("/users/:userId/subscrib/:subscribId", (req, res) => {
       const userId = req.params.userId;
       const subscribId = req.params.subscribId;
-      console.log(userId);
-      console.log(subscribId);
+      // console.log(userId);
+      // console.log(subscribId);
       usersCollection.findOne(
         { _id: ObjectId(userId), subscrib: subscribId },
         (error, result) => {
