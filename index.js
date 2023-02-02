@@ -79,6 +79,13 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    // limit depend on the user call
+    app.get("/all-users/:selectNumber", async(req, res) => {
+      const userSelect = req.params.selectNumber;
+          const query = {};
+          const result = await usersCollection.find(query).limit(+userSelect).toArray();
+          res.send(result);
+    });
     // get user data
     app.get("/user", async (req, res) => {
       const query = {};
@@ -164,7 +171,7 @@ async function run() {
 
     app.post("/add-story", async (req, res) => {
       const body = req.body;
-      console.log(body);
+      // console.log(body);
       const story = await articleCollection.insertOne(body);
       res.send(story);
     });
@@ -244,7 +251,7 @@ async function run() {
     // Handle socket connection
     io.on("connection", (socket) => {
       console.log("Client connected");
-    });
+    }); 
 
     // Handle new notification
     app.post("/notifications", (req, res) => {
