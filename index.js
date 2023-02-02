@@ -3,6 +3,8 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const server = require("http").Server(app);
+const io = require("socket.io")(server);
 require("dotenv").config();
 const SSLCommerzPayment = require("sslcommerz-lts");
 const port = process.env.PORT;
@@ -48,9 +50,9 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     const usersCollection = client.db("freeMiumArticle").collection("users");
-    const addNewStoryCollection = client
+    const notificationCollection = client
       .db("freeMiumArticle")
-      .collection("addNewStory");
+      .collection("notifications");
     const articleCollection = client
       .db("freeMiumArticle")
       .collection("homePosts");
@@ -72,6 +74,7 @@ async function run() {
       next();
     };
 
+    // user route
     app.put("/user/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
@@ -89,9 +92,21 @@ async function run() {
       res.send(updateUser);
     });
     // get user data
+    app.get("/all-users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+    // get user data
     app.get("/user", async (req, res) => {
       const query = {};
       const result = await usersCollection.find(query).limit(6).toArray();
+      res.send(result);
+    });
+    // get three user data
+    app.get("/three-users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).limit(3).toArray();
       res.send(result);
     });
     // Get Data category name
@@ -158,15 +173,31 @@ async function run() {
       res.send(result);
     });
 
+/*========================
+category api
+========================= */
+// create new category
+app.post('/addNewCategory',async(req,res)=>{
+    const category = req.body; 
+    console.log(category)   
+    const result= await categoryButtonCollection.insertOne(category);    
+    res.send(result)
+});
     // category button api
     app.get("/categoryButton", async (req, res) => {
       const query = {};
-      const categoryButton = await categoryButtonCollection
-        .find(query)
-        .toArray();
+      const categoryButton = await categoryButtonCollection.find(query).toArray();
       res.send(categoryButton);
     });
+    // delete category
+    app.delete('/categoryButton/:id',async(req,res)=>{
+      const id = req.params.id;
+      const filter = {_id:ObjectId(id)}
+      const result = await categoryButtonCollection.deleteOne(filter);
+      res.send(result)
+  })
 
+// store api
     app.post("/add-story", async (req, res) => {
       const body = req.body;
       console.log(body);
@@ -178,6 +209,99 @@ async function run() {
       const query = { _id: ObjectId(id) };
       const story = await articleCollection.findOne(query);
       res.send(story);
+    });
+
+    app.get("/payment-user/:id", async (req, res) => {
+      const { id } = req.params;
+
+      const user = await paymentCollection.findOne({ transactionId: id });
+      res.send(user);
+    });
+
+    app.post("/payment/fail", async (req, res) => {
+      const { transactionId } = req.query;
+      if (!transactionId) {
+        return res.redirect(`${process.env.CLIENT_URL}/fail`);
+      }
+      const result = await paymentCollection.deleteOne({ transactionId });
+      if (result.deletedCount) {
+        res.redirect(`${process.env.CLIENT_URL}/fail`);
+      }
+    });
+
+    // get specific user by user email
+    app.get("/user/:userId", async (req, res) => {
+      const email = req.params.userId;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      res.send(user);
+    });
+    //User follow section
+    app.post("/users/follow", (req, res) => {
+      const userId = req.body.userId;
+      console.log(userId);
+      const followingId = req.body.followingId;
+      console.log(followingId);
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $addToSet: { following: followingId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully followed user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/unfollow", (req, res) => {
+      const userId = req.body.userId;
+      const unfollowingId = req.body.unfollowingId;
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $pull: { following: unfollowingId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully unfollowed user" });
+          }
+        }
+      );
+    });
+
+    app.get("/users/:userId/following/:followingId", (req, res) => {
+      const userId = req.params.userId;
+      const followingId = req.params.followingId;
+      console.log(userId);
+      console.log(followingId);
+      usersCollection.findOne(
+        { _id: ObjectId(userId), following: followingId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ isFollowing: true });
+            } else {
+              res.status(200).send({ isFollowing: false });
+            }
+          }
+        }
+      );
+    });
+    // Search route
+    app.get("/search", async (req, res) => {
+      try {
+        const query = req.query.q;
+        const results = await articleCollection
+          .find({ $text: { $search: query } })
+          .toArray();
+        res.json(results);
+      } catch (err) {
+        res.status(500).json({ message: err.message });
+      }
     });
 
     app.post("/payment", async (req, res) => {
@@ -250,40 +374,43 @@ async function run() {
       }
     });
 
-    app.get("/payment-user/:id", async (req, res) => {
-      const { id } = req.params;
-
-      const user = await paymentCollection.findOne({ transactionId: id });
-      res.send(user);
+    // Handle socket connection
+    io.on("connection", (socket) => {
+      console.log("Client connected");
     });
 
-    app.post("/payment/fail", async (req, res) => {
-      const { transactionId } = req.query;
-      if (!transactionId) {
-        return res.redirect(`${process.env.CLIENT_URL}/fail`);
-      }
-      const result = await paymentCollection.deleteOne({ transactionId });
-      if (result.deletedCount) {
-        res.redirect(`${process.env.CLIENT_URL}/fail`);
-      }
+    // Handle new notification
+    app.post("/notifications", (req, res) => {
+      const notification = req.body;
+      notificationCollection.insertOne(notification, (err, result) => {
+        if (err) throw err;
+        io.emit("notification", notification);
+        res.status(201).send(`Notification inserted: ${result.ops[0]._id}`);
+      });
     });
 
-    // get specific user by user email
-    app.get("/user/:userId", async (req, res) => {
-      const email = req.params.userId;
-      const query = { email: email };
-      const user = await usersCollection.findOne(query);
-      res.send(user);
+    app.get("/notifications/:userId", (req, res) => {
+      notificationCollection
+        .find({ userId: req.params.userId })
+        .toArray((err, notifications) => {
+          if (err) {
+            console.log(err);
+            res.status(500).send(err);
+          } else {
+            res.status(200).send(notifications);
+          }
+        });
     });
 
-    app.post("/users/follow", (req, res) => {
+    // subscribe writter
+    app.post("/users/subscrib", (req, res) => {
       const userId = req.body.userId;
-      console.log(userId);
-      const followingId = req.body.followingId;
-      console.log(followingId);
+
+      const subscribId = req.body.subscribId;
+
       usersCollection.updateOne(
         { _id: ObjectId(userId) },
-        { $addToSet: { following: followingId } },
+        { $addToSet: { subscrib: subscribId } },
         (error, result) => {
           if (error) {
             res.status(500).send({ error: "Error updating user" });
@@ -294,12 +421,12 @@ async function run() {
       );
     });
 
-    app.post("/users/unfollow", (req, res) => {
+    app.post("/users/unsubscrib", (req, res) => {
       const userId = req.body.userId;
-      const unfollowingId = req.body.unfollowingId;
+      const unsubscribId = req.body.unsubscribId;
       usersCollection.updateOne(
         { _id: ObjectId(userId) },
-        { $pull: { following: unfollowingId } },
+        { $pull: { subscrib: unsubscribId } },
         (error, result) => {
           if (error) {
             res.status(500).send({ error: "Error updating user" });
@@ -310,21 +437,21 @@ async function run() {
       );
     });
 
-    app.get("/users/:userId/following/:followingId", (req, res) => {
+    app.get("/users/:userId/subscrib/:subscribId", (req, res) => {
       const userId = req.params.userId;
-      const followingId = req.params.followingId;
+      const subscribId = req.params.subscribId;
       console.log(userId);
-      console.log(followingId);
+      console.log(subscribId);
       usersCollection.findOne(
-        { _id: ObjectId(userId), following: followingId },
+        { _id: ObjectId(userId), subscrib: subscribId },
         (error, result) => {
           if (error) {
             res.status(500).send({ error: "Error fetching user" });
           } else {
             if (result) {
-              res.status(200).send({ isFollowing: true });
+              res.status(200).send({ isSubscrib: true });
             } else {
-              res.status(200).send({ isFollowing: false });
+              res.status(200).send({ isSubscrib: false });
             }
           }
         }
