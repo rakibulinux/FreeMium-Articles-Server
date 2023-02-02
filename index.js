@@ -347,6 +347,10 @@ async function run() {
       }
     });
 
+    app.post("/payment/cancel", async (req, res) => {
+        return res.redirect(`${process.env.CLIENT_URL}/fail`);
+    });
+
     // Handle socket connection
     io.on("connection", (socket) => {
       console.log("Client connected");
