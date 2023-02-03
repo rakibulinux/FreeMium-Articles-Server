@@ -42,7 +42,7 @@ function verifyJWT(req, res, next) {
     next();
   });
 }
-
+// check main route
 app.get("/", (req, res) => {
   res.send(`FreeMium Articles running on port ${port}`);
 });
