@@ -9,14 +9,11 @@ const port = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
-<<<<<<< HEAD
-// sslcommerz 
-const store_id = process.env.STORE_ID
-const store_passwd = process.env.STORE_PASSWORD
-const is_live = false //true for live, false for sandbox
+// sslcommerz
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASSWORD;
+const is_live = false; //true for live, false for sandbox
 
-=======
->>>>>>> rahad
 // Mongo DB Connections
 
 const uri = process.env.MONGODB_URI;
@@ -48,10 +45,14 @@ app.get("/", (req, res) => {
 });
 
 async function run() {
-  try { 
+  try {
     const usersCollection = client.db("freeMiumArticle").collection("users");
-    const articleCollection = client.db("freeMiumArticle").collection("homePosts");
-    const categoryButtonCollection = client.db("freeMiumArticle").collection("categoryItem");
+    const articleCollection = client
+      .db("freeMiumArticle")
+      .collection("homePosts");
+    const categoryButtonCollection = client
+      .db("freeMiumArticle")
+      .collection("categoryItem");
 
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
@@ -88,11 +89,14 @@ async function run() {
       res.send(result);
     });
     // limit depend on the user call
-    app.get("/all-users/:selectNumber", async(req, res) => {
+    app.get("/all-users/:selectNumber", async (req, res) => {
       const userSelect = req.params.selectNumber;
-          const query = {};
-          const result = await usersCollection.find(query).limit(+userSelect).toArray();
-          res.send(result);
+      const query = {};
+      const result = await usersCollection
+        .find(query)
+        .limit(+userSelect)
+        .toArray();
+      res.send(result);
     });
     // get user data
     app.get("/user", async (req, res) => {
@@ -107,13 +111,13 @@ async function run() {
       res.send(result);
     });
     // Get Data category name
-    app.get('/category/:name', async (req, res) => {
+    app.get("/category/:name", async (req, res) => {
       const categoryName = req.params.name;
       const query = { category: categoryName };
       // console.log(typeof(categoryName));
       const result = await articleCollection.find(query).toArray();
-      res.send([{ "categoryName": categoryName }, result]);
-    })
+      res.send([{ categoryName: categoryName }, result]);
+    });
     // Update users
     app.put("/users/:email", async (req, res) => {
       const email = req.params.email;
@@ -148,7 +152,7 @@ async function run() {
       res.status(401).send({ message: "Unauthorized" });
     });
 
-    // Get admin user permission 
+    // Get admin user permission
     app.get("/users/admin/:email", verifyJWT, verifyAdmin, async (req, res) => {
       const email = req.params.email;
       const query = { email };
@@ -156,44 +160,46 @@ async function run() {
       res.send({ isAdmin: adminUser?.role === "admin" });
     });
 
-    app.get('/allArticles', async (req, res) => {
+    app.get("/allArticles", async (req, res) => {
       const query = {};
       const article = await articleCollection.find(query).toArray();
       res.send(article);
-    })
+    });
     //  fdf
     //data with article id
-    app.get('/view-story/:id', async (req, res) => {
+    app.get("/view-story/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await articleCollection.findOne(query);
       res.send(result);
-    })
+    });
 
-/*========================
+    /*========================
 category api
 ========================= */
-// create new category
-app.post('/addNewCategory',async(req,res)=>{
-    const category = req.body;   
-    const result= await categoryButtonCollection.insertOne(category);    
-    res.send(result)
-});
+    // create new category
+    app.post("/addNewCategory", async (req, res) => {
+      const category = req.body;
+      const result = await categoryButtonCollection.insertOne(category);
+      res.send(result);
+    });
     // category button api
-    app.get('/categoryButton', async (req, res) => {
+    app.get("/categoryButton", async (req, res) => {
       const query = {};
-      const categoryButton = await categoryButtonCollection.find(query).toArray();
+      const categoryButton = await categoryButtonCollection
+        .find(query)
+        .toArray();
       res.send(categoryButton);
     });
     // delete category
-    app.delete('/categoryButton/:id',async(req,res)=>{
+    app.delete("/categoryButton/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = {_id:ObjectId(id)}
+      const filter = { _id: ObjectId(id) };
       const result = await categoryButtonCollection.deleteOne(filter);
-      res.send(result)
-  })
+      res.send(result);
+    });
 
-// store api
+    // store api
     app.post("/add-story", async (req, res) => {
       const body = req.body;
       const story = await articleCollection.insertOne(body);
@@ -207,79 +213,83 @@ app.post('/addNewCategory',async(req,res)=>{
     });
 
     app.post("/payment", async (req, res) => {
-      const paymentUser = req.body
-      const transactionId = new ObjectId().toString()
+      const paymentUser = req.body;
+      const transactionId = new ObjectId().toString();
       const data = {
         total_amount: paymentUser.price,
-        currency: 'BDT',
+        currency: "BDT",
         tran_id: transactionId,
         success_url: `${process.env.SERVER_URL}/payment/success?transactionId=${transactionId}`,
         fail_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
-        cancel_url: 'http://localhost:5000/payment/cancel',
-        ipn_url: 'http://localhost:3030/ipn',
-        shipping_method: 'Courier',
-        product_name: 'Computer.',
-        product_category: 'Electronic',
-        product_profile: 'general',
+        cancel_url: "http://localhost:5000/payment/cancel",
+        ipn_url: "http://localhost:3030/ipn",
+        shipping_method: "Courier",
+        product_name: "Computer.",
+        product_category: "Electronic",
+        product_profile: "general",
         cus_name: paymentUser.name,
         cus_email: paymentUser.email,
-        cus_add1: 'Dhaka',
-        cus_add2: 'Dhaka',
-        cus_city: 'Dhaka',
-        cus_state: 'Dhaka',
-        cus_postcode: '1000',
-        cus_country: 'Bangladesh',
+        cus_add1: "Dhaka",
+        cus_add2: "Dhaka",
+        cus_city: "Dhaka",
+        cus_state: "Dhaka",
+        cus_postcode: "1000",
+        cus_country: "Bangladesh",
         cus_phone: paymentUser.phone,
-        cus_fax: '01711111111',
-        ship_name: 'Customer Name',
-        ship_add1: 'Dhaka',
-        ship_add2: 'Dhaka',
-        ship_city: 'Dhaka',
-        ship_state: 'Dhaka',
+        cus_fax: "01711111111",
+        ship_name: "Customer Name",
+        ship_add1: "Dhaka",
+        ship_add2: "Dhaka",
+        ship_city: "Dhaka",
+        ship_state: "Dhaka",
         ship_postcode: 1000,
-        ship_country: 'Bangladesh',
+        ship_country: "Bangladesh",
       };
 
       // console.log(data);
 
-      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
-      sslcz.init(data).then(apiResponse => {
+      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+      sslcz.init(data).then((apiResponse) => {
         // Redirect the user to payment gateway
-        let GatewayPageURL = apiResponse.GatewayPageURL
+        let GatewayPageURL = apiResponse.GatewayPageURL;
         paymentCollection.insertOne({
-
           name: paymentUser.name,
           email: paymentUser.email,
           phone: paymentUser.phone,
           amount: paymentUser.price,
           transactionId,
-          paid: false
-        })
-        res.send({ url: GatewayPageURL })
+          paid: false,
+        });
+        res.send({ url: GatewayPageURL });
         // console.log('Redirecting to: ', GatewayPageURL)
       });
       // res.send(data)
-    })
+    });
     app.post("/payment/success", async (req, res) => {
       const { transactionId } = req.query;
       if (!transactionId) {
-        return res.redirect(`${process.env.CLIENT_URL}/fail`)
+        return res.redirect(`${process.env.CLIENT_URL}/fail`);
       }
-      const result = await paymentCollection.updateOne({ transactionId }, { $set: { paid: true, paidTime: new Date() } })
+      const result = await paymentCollection.updateOne(
+        { transactionId },
+        { $set: { paid: true, paidTime: new Date() } }
+      );
 
       if (result.modifiedCount > 0) {
-        res.redirect(`${process.env.CLIENT_URL}/success?transactionId=${transactionId}`)
+        res.redirect(
+          `${process.env.CLIENT_URL}/success?transactionId=${transactionId}`
+        );
       }
-    })
+    });
 
     app.post("/payment/cancel", async (req, res) => {
-        return res.redirect(`${process.env.CLIENT_URL}/fail`);
+      return res.redirect(`${process.env.CLIENT_URL}/fail`);
     });
 
     // Handle socket connection
     io.on("connection", (socket) => {
       console.log("Client connected");
-    }); 
+    });
 
     // Handle new notification
     app.post("/notifications", (req, res) => {
@@ -358,45 +368,47 @@ app.post('/addNewCategory',async(req,res)=>{
       );
     });
 
-/*=======================
+    /*=======================
 all reportedItems api
 ========================
 */
 
-//  reported story 
-app.put('/story/reportedStory/:id',async(req,res)=>{
-  const id = req.params.id;
-  const filter = {_id:ObjectId(id)}   
-  const options = {upsert:true}
-  const updatedDoc = {
-      $set:{
-          report :'true'
-      }
-  }
-  const result= await articleCollection.updateOne(filter,updatedDoc,options);
-  res.send(result)
-})
-// get all reportedItems
+    //  reported story
+    app.put("/story/reportedStory/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          report: "true",
+        },
+      };
+      const result = await articleCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
+    // get all reportedItems
 
-app.get('/reportedItem',async(req,res)=>{  
-  const query ={"report":"true"}
-  const reportedItems = await articleCollection.find(query).toArray();
-  res.send(reportedItems)
-  
-})
+    app.get("/reportedItem", async (req, res) => {
+      const query = { report: "true" };
+      const reportedItems = await articleCollection.find(query).toArray();
+      res.send(reportedItems);
+    });
 
-// delete reported itme
-app.delete('/Story/reportedStory/:id',async(req,res)=>{
-  const id = req.params.id;
-  const filter = {_id:ObjectId(id)}
-  const result = await articleCollection.deleteOne(filter);
-  res.send(result)
-})
+    // delete reported itme
+    app.delete("/Story/reportedStory/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await articleCollection.deleteOne(filter);
+      res.send(result);
+    });
   } finally {
-
   }
 }
-// 
+//
 run().catch((err) => console.error(err));
 
 // Connection
