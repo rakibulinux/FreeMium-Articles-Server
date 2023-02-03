@@ -3,8 +3,12 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const server = require("http").Server(app);
+const io = require("socket.io")(server);
 require("dotenv").config();
+const SSLCommerzPayment = require("sslcommerz-lts");
 const port = process.env.PORT;
+
 // middlewares
 app.use(cors());
 app.use(express.json());
@@ -15,7 +19,6 @@ const store_passwd = process.env.STORE_PASSWORD;
 const is_live = false; //true for live, false for sandbox
 
 // Mongo DB Connections
-
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
@@ -47,12 +50,18 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     const usersCollection = client.db("freeMiumArticle").collection("users");
+    const notificationCollection = client
+      .db("freeMiumArticle")
+      .collection("notifications");
     const articleCollection = client
       .db("freeMiumArticle")
       .collection("homePosts");
     const categoryButtonCollection = client
       .db("freeMiumArticle")
       .collection("categoryItem");
+    const paymentCollection = client
+      .db("freeMiumArticle")
+      .collection("payment");
 
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
@@ -165,7 +174,7 @@ async function run() {
       const article = await articleCollection.find(query).toArray();
       res.send(article);
     });
-    //  fdf
+
     //data with article id
     app.get("/view-story/:id", async (req, res) => {
       const id = req.params.id;
@@ -205,12 +214,105 @@ category api
       const story = await articleCollection.insertOne(body);
       res.send(story);
     });
-    // app.get("/view-story/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { _id: ObjectId(id) };
-    //   const story = await articleCollection.findOne(query);
-    //   res.send(story);
-    // });
+    app.get("/view-story/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const story = await articleCollection.findOne(query);
+      res.send(story);
+    });
+
+    app.get("/payment-user/:id", async (req, res) => {
+      const { id } = req.params;
+
+      const user = await paymentCollection.findOne({ transactionId: id });
+      res.send(user);
+    });
+
+    app.post("/payment/fail", async (req, res) => {
+      const { transactionId } = req.query;
+      if (!transactionId) {
+        return res.redirect(`${process.env.CLIENT_URL}/fail`);
+      }
+      const result = await paymentCollection.deleteOne({ transactionId });
+      if (result.deletedCount) {
+        res.redirect(`${process.env.CLIENT_URL}/fail`);
+      }
+    });
+
+    // get specific user by user email
+    app.get("/user/:userId", async (req, res) => {
+      const email = req.params.userId;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      res.send(user);
+    });
+    //User follow section
+    app.post("/users/follow", (req, res) => {
+      const userId = req.body.userId;
+      console.log(userId);
+      const followingId = req.body.followingId;
+      console.log(followingId);
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $addToSet: { following: followingId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully followed user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/unfollow", (req, res) => {
+      const userId = req.body.userId;
+      const unfollowingId = req.body.unfollowingId;
+      usersCollection.updateOne(
+        { _id: ObjectId(userId) },
+        { $pull: { following: unfollowingId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully unfollowed user" });
+          }
+        }
+      );
+    });
+
+    app.get("/users/:userId/following/:followingId", (req, res) => {
+      const userId = req.params.userId;
+      const followingId = req.params.followingId;
+      console.log(userId);
+      console.log(followingId);
+      usersCollection.findOne(
+        { _id: ObjectId(userId), following: followingId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ isFollowing: true });
+            } else {
+              res.status(200).send({ isFollowing: false });
+            }
+          }
+        }
+      );
+    });
+    // Search route
+    app.get("/search", async (req, res) => {
+      try {
+        const query = req.query.q;
+        const results = await articleCollection
+          .find({ $text: { $search: query } })
+          .toArray();
+        res.json(results);
+      } catch (err) {
+        res.status(500).json({ message: err.message });
+      }
+    });
 
     app.post("/payment", async (req, res) => {
       const paymentUser = req.body;
@@ -221,7 +323,7 @@ category api
         tran_id: transactionId,
         success_url: `${process.env.SERVER_URL}/payment/success?transactionId=${transactionId}`,
         fail_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
-        cancel_url: "http://localhost:5000/payment/cancel",
+        cancel_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
         ipn_url: "http://localhost:3030/ipn",
         shipping_method: "Courier",
         product_name: "Computer.",
@@ -368,48 +470,6 @@ category api
       );
     });
 
-    // app.get("/view-story/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { _id: ObjectId(id) };
-    //   const story = await articleCollection.findOne(query);
-    //   res.send(story);
-    // });
-
-    app.get("/view-story/:id", async (req, res) => {
-      const storyId = req.params.id;
-      const userId = req.headers.userid;
-
-      const story = await articleCollection.findOne({ _id: ObjectId(storyId) });
-
-      if (!story) {
-        return res.status(404).send({ message: "Story not found" });
-      }
-
-      const user = await usersCollection.findOne({ _id: ObjectId(userId) });
-
-      if (!user) {
-        return res.status(401).send({ message: "Unauthorized" });
-      }
-
-      if (user.paid === true) {
-        return res.send(story);
-      }
-
-      if (user.viewedStories[storyId] >= 5) {
-        return res
-          .status(403)
-          .send({ message: "This story is for premium users only" });
-      }
-
-      user.viewedStories[storyId] = (user.viewedStories[storyId] || 0) + 1;
-
-      await usersCollection.updateOne(
-        { _id: new mongodb.ObjectID(userId) },
-        { $set: { viewedStories: user.viewedStories } }
-      );
-
-      return res.send(story);
-    });
     /*=======================
 all reportedItems api
 ========================
@@ -447,6 +507,48 @@ all reportedItems api
       const result = await articleCollection.deleteOne(filter);
       res.send(result);
     });
+    app.get("/view-story/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const story = await articleCollection.findOne(query);
+      res.send(story);
+    });
+
+    // app.get("/view-story/:id", async (req, res) => {
+    //   const storyId = req.params.id;
+    //   const userId = req.headers.userid;
+
+    //   const story = await articleCollection.findOne({ _id: ObjectId(storyId) });
+
+    //   if (!story) {
+    //     return res.status(404).send({ message: "Story not found" });
+    //   }
+
+    //   const user = await usersCollection.findOne({ _id: ObjectId(userId) });
+
+    //   if (!user) {
+    //     return res.status(401).send({ message: "Unauthorized" });
+    //   }
+
+    //   if (user.paid === true) {
+    //     return res.send(story);
+    //   }
+
+    //   if (user.viewedStories[storyId] >= 5) {
+    //     return res
+    //       .status(403)
+    //       .send({ message: "This story is for premium users only" });
+    //   }
+
+    //   user.viewedStories[storyId] = (user.viewedStories[storyId] || 0) + 1;
+
+    //   await usersCollection.updateOne(
+    //     { _id: new mongodb.ObjectID(userId) },
+    //     { $set: { viewedStories: user.viewedStories } }
+    //   );
+
+    //   return res.send(story);
+    // });
   } finally {
   }
 }
