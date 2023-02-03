@@ -97,6 +97,16 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    // limit depend on the user call
+    app.get("/all-users/:selectNumber", async (req, res) => {
+      const userSelect = req.params.selectNumber;
+      const query = {};
+      const result = await usersCollection
+        .find(query)
+        .limit(+userSelect)
+        .toArray();
+      res.send(result);
+    });
     // get user data
     app.get("/user", async (req, res) => {
       const query = {};
