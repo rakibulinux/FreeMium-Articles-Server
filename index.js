@@ -497,48 +497,48 @@ all reportedItems api
       const result = await articleCollection.deleteOne(filter);
       res.send(result);
     });
-    // app.get("/view-story/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { _id: ObjectId(id) };
-    //   const story = await articleCollection.findOne(query);
-    //   res.send(story);
-    // });
-
     app.get("/view-story/:id", async (req, res) => {
-      const storyId = req.params.id;
-      const userId = req.headers.userid;
-
-      const story = await articleCollection.findOne({ _id: ObjectId(storyId) });
-
-      if (!story) {
-        return res.status(404).send({ message: "Story not found" });
-      }
-
-      const user = await usersCollection.findOne({ _id: ObjectId(userId) });
-
-      if (!user) {
-        return res.status(401).send({ message: "Unauthorized" });
-      }
-
-      if (user.paid === true) {
-        return res.send(story);
-      }
-
-      if (user.viewedStories[storyId] >= 5) {
-        return res
-          .status(403)
-          .send({ message: "This story is for premium users only" });
-      }
-
-      user.viewedStories[storyId] = (user.viewedStories[storyId] || 0) + 1;
-
-      await usersCollection.updateOne(
-        { _id: new mongodb.ObjectID(userId) },
-        { $set: { viewedStories: user.viewedStories } }
-      );
-
-      return res.send(story);
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const story = await articleCollection.findOne(query);
+      res.send(story);
     });
+
+    // app.get("/view-story/:id", async (req, res) => {
+    //   const storyId = req.params.id;
+    //   const userId = req.headers.userid;
+
+    //   const story = await articleCollection.findOne({ _id: ObjectId(storyId) });
+
+    //   if (!story) {
+    //     return res.status(404).send({ message: "Story not found" });
+    //   }
+
+    //   const user = await usersCollection.findOne({ _id: ObjectId(userId) });
+
+    //   if (!user) {
+    //     return res.status(401).send({ message: "Unauthorized" });
+    //   }
+
+    //   if (user.paid === true) {
+    //     return res.send(story);
+    //   }
+
+    //   if (user.viewedStories[storyId] >= 5) {
+    //     return res
+    //       .status(403)
+    //       .send({ message: "This story is for premium users only" });
+    //   }
+
+    //   user.viewedStories[storyId] = (user.viewedStories[storyId] || 0) + 1;
+
+    //   await usersCollection.updateOne(
+    //     { _id: new mongodb.ObjectID(userId) },
+    //     { $set: { viewedStories: user.viewedStories } }
+    //   );
+
+    //   return res.send(story);
+    // });
   } finally {
   }
 }
