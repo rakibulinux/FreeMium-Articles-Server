@@ -42,7 +42,7 @@ function verifyJWT(req, res, next) {
     next();
   });
 }
-
+// check main route
 app.get("/", (req, res) => {
   res.send(`FreeMium Articles running on port ${port}`);
 });
@@ -92,9 +92,21 @@ async function run() {
       res.send(updateUser);
     });
     // get user data
+    app.get("/all-users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+    // get user data
     app.get("/user", async (req, res) => {
       const query = {};
       const result = await usersCollection.find(query).limit(6).toArray();
+      res.send(result);
+    });
+    // get three user data
+    app.get("/three-users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).limit(3).toArray();
       res.send(result);
     });
     // Get Data category name
@@ -161,6 +173,15 @@ async function run() {
       res.send(result);
     });
 
+    /*========================
+category api
+========================= */
+    // create new category
+    app.post("/addNewCategory", async (req, res) => {
+      const category = req.body;
+      const result = await categoryButtonCollection.insertOne(category);
+      res.send(result);
+    });
     // category button api
     app.get("/categoryButton", async (req, res) => {
       const query = {};
@@ -169,19 +190,26 @@ async function run() {
         .toArray();
       res.send(categoryButton);
     });
+    // delete category
+    app.delete("/categoryButton/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await categoryButtonCollection.deleteOne(filter);
+      res.send(result);
+    });
 
+    // store api
     app.post("/add-story", async (req, res) => {
       const body = req.body;
-      console.log(body);
       const story = await articleCollection.insertOne(body);
       res.send(story);
     });
-    // app.get("/view-story/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { _id: ObjectId(id) };
-    //   const story = await articleCollection.findOne(query);
-    //   res.send(story);
-    // });
+    app.get("/view-story/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const story = await articleCollection.findOne(query);
+      res.send(story);
+    });
 
     app.get("/payment-user/:id", async (req, res) => {
       const { id } = req.params;
@@ -285,7 +313,7 @@ async function run() {
         tran_id: transactionId,
         success_url: `${process.env.SERVER_URL}/payment/success?transactionId=${transactionId}`,
         fail_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
-        cancel_url: `${process.env.SERVER_URL}/payment/cancel`,
+        cancel_url: `${process.env.SERVER_URL}/payment/fail?transactionId=${transactionId}`,
         ipn_url: "http://localhost:3030/ipn",
         shipping_method: "Courier",
         product_name: "Computer.",
@@ -346,6 +374,10 @@ async function run() {
       }
     });
 
+    app.post("/payment/cancel", async (req, res) => {
+      return res.redirect(`${process.env.CLIENT_URL}/fail`);
+    });
+
     // Handle socket connection
     io.on("connection", (socket) => {
       console.log("Client connected");
@@ -387,7 +419,7 @@ async function run() {
           if (error) {
             res.status(500).send({ error: "Error updating user" });
           } else {
-            res.status(200).send({ message: "Successfully followed user" });
+            res.status(200).send({ message: "Successfully subscrib user" });
           }
         }
       );
@@ -403,7 +435,7 @@ async function run() {
           if (error) {
             res.status(500).send({ error: "Error updating user" });
           } else {
-            res.status(200).send({ message: "Successfully unfollowed user" });
+            res.status(200).send({ message: "Successfully unsubscrib user" });
           }
         }
       );
@@ -412,8 +444,6 @@ async function run() {
     app.get("/users/:userId/subscrib/:subscribId", (req, res) => {
       const userId = req.params.userId;
       const subscribId = req.params.subscribId;
-      console.log(userId);
-      console.log(subscribId);
       usersCollection.findOne(
         { _id: ObjectId(userId), subscrib: subscribId },
         (error, result) => {
@@ -430,6 +460,43 @@ async function run() {
       );
     });
 
+    /*=======================
+all reportedItems api
+========================
+*/
+
+    //  reported story
+    app.put("/story/reportedStory/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          report: "true",
+        },
+      };
+      const result = await articleCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
+    // get all reportedItems
+
+    app.get("/reportedItem", async (req, res) => {
+      const query = { report: "true" };
+      const reportedItems = await articleCollection.find(query).toArray();
+      res.send(reportedItems);
+    });
+
+    // delete reported itme
+    app.delete("/Story/reportedStory/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await articleCollection.deleteOne(filter);
+      res.send(result);
+    });
     // app.get("/view-story/:id", async (req, res) => {
     //   const id = req.params.id;
     //   const query = { _id: ObjectId(id) };
