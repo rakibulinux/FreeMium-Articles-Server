@@ -8,7 +8,6 @@ const io = require("socket.io")(server);
 require("dotenv").config();
 const SSLCommerzPayment = require("sslcommerz-lts");
 const port = process.env.PORT;
-
 // middlewares
 app.use(cors());
 app.use(express.json());
@@ -62,6 +61,12 @@ async function run() {
     const paymentCollection = client
       .db("freeMiumArticle")
       .collection("payment");
+
+    // comment collection 
+    const commentCollection = client
+      .db("freeMiumArticle")
+      .collection("comments");
+
 
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
@@ -470,10 +475,28 @@ category api
       );
     });
 
-    /*=======================
-all reportedItems api
-========================
-*/
+    // User comment  on article  post to the database
+    app.post('/comments', async (req, res) => {
+      const comments = req.body;
+      const result = await commentCollection.insertOne(comments);
+      res.send(result);
+
+    });
+
+    // User comment  on article get from the database
+
+    app.get('/comments', async (req, res) => {
+      let query = {};
+      if (req.query.articleId) {
+        query = {
+          articleId: req.query.articleId
+        }
+      }
+      const cursor = commentCollection.find(query).sort({ "_id": -1 })
+      const comments = await cursor.toArray();
+      res.send(comments)
+    });
+
 
     //  reported story
     app.put("/story/reportedStory/:id", async (req, res) => {
