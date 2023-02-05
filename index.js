@@ -9,14 +9,11 @@ const port = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
-<<<<<<< HEAD
 // sslcommerz 
 const store_id = process.env.STORE_ID
 const store_passwd = process.env.STORE_PASSWORD
 const is_live = false //true for live, false for sandbox
 
-=======
->>>>>>> rahad
 // Mongo DB Connections
 
 const uri = process.env.MONGODB_URI;
@@ -88,14 +85,14 @@ async function run() {
       res.send(result);
     });
     // limit depend on the user call
-    app.get("/all-users/:selectNumber", async(req, res) => {
+    app.get("/all-users/:selectNumber", async(req, res) =>{
       const userSelect = req.params.selectNumber;
           const query = {};
           const result = await usersCollection.find(query).limit(+userSelect).toArray();
           res.send(result);
     });
     // get user data
-    app.get("/user", async (req, res) => {
+    app.get("/user", async (req, res) =>{
       const query = {};
       const result = await usersCollection.find(query).limit(6).toArray();
       res.send(result);
