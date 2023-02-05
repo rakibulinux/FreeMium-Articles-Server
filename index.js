@@ -62,6 +62,12 @@ async function run() {
       .db("freeMiumArticle")
       .collection("payment");
 
+    // comment collection 
+    const commentCollection = client
+      .db("freeMiumArticle")
+      .collection("comments");
+
+
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -74,7 +80,7 @@ async function run() {
     };
 
 
-  // user route
+    // user route
     app.put("/user/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
@@ -374,12 +380,12 @@ async function run() {
         });
     });
 
-// subscribe writter
+    // subscribe writter
     app.post("/users/subscrib", (req, res) => {
       const userId = req.body.userId;
-      
+
       const subscribId = req.body.subscribId;
-      
+
       usersCollection.updateOne(
         { _id: ObjectId(userId) },
         { $addToSet: { subscrib: subscribId } },
@@ -428,6 +434,28 @@ async function run() {
           }
         }
       );
+    });
+
+    // User comment  on article  post to the database
+    app.post('/comments', async (req, res) => {
+      const comments = req.body;
+      const result = await commentCollection.insertOne(comments);
+      res.send(result);
+
+    });
+
+    // User comment  on article get from the database
+
+    app.get('/comments', async (req, res) => {
+      let query = {};
+      if (req.query.articleId) {
+        query = {
+          articleId: req.query.articleId
+        }
+      }
+      const cursor = commentCollection.find(query).sort({ "_id": -1 })
+      const comments = await cursor.toArray();
+      res.send(comments)
     });
 
 
