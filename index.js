@@ -284,8 +284,7 @@ category api
     app.get("/users/:userId/following/:followingId", (req, res) => {
       const userId = req.params.userId;
       const followingId = req.params.followingId;
-      console.log(userId);
-      console.log(followingId);
+   
       usersCollection.findOne(
         { _id: ObjectId(userId), following: followingId },
         (error, result) => {
@@ -416,7 +415,9 @@ category api
         });
     });
 
-    // subscribe writter
+    /*===================
+    subscribe writter
+    =====================*/
     app.post("/users/subscrib", (req, res) => {
       const userId = req.body.userId;
 
@@ -549,6 +550,120 @@ all reportedItems api
 
     //   return res.send(story);
     // });
+
+
+
+  /*============================
+    upVote  api
+    ============================*/
+    app.post("/users/upVote", (req, res) => {
+      const storyId = req.body.storyId;
+console.log(storyId)
+      const upVoteId = req.body.upVoteId;
+
+      articleCollection.updateOne(
+        { _id: ObjectId(storyId) },
+        { $addToSet: { upVote: upVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully upVoteing user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/decUpVote", (req, res) => {
+      const storyId = req.body.storyId;
+      const decUpVoteId = req.body.decUpVoteId;
+      articleCollection.updateOne(
+        {_id: ObjectId(storyId) },
+        { $pull: { upVote: decUpVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully decUpVoteing user" });
+          }
+        }
+      );
+    });
+
+    app.get("/users/:storyId/upVote/:upVoteId", (req, res) => {
+      const storyId = req.params.storyId;
+      const upVoteId = req.params.upVoteId;
+      articleCollection.findOne(
+        {_id: ObjectId(storyId) , upVote: upVoteId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ upVote: true });
+            } else {
+              res.status(200).send({ upVote: false });
+            }
+          }
+        }
+      );
+    });
+     /*============================
+     down vote api
+    ============================*/
+    app.post("/users/downVote", (req, res) => {
+      const storyId = req.body.storyId;
+console.log(storyId)
+      const downVoteId = req.body.downVoteId;
+
+      articleCollection.updateOne(
+        { _id: ObjectId(storyId) },
+        { $addToSet: { downVote: downVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully upVoteing user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/decDownVote", (req, res) => {
+      const storyId = req.body.storyId;
+      const decDownVoteId = req.body.decDownVoteId;
+      articleCollection.updateOne(
+        {_id: ObjectId(storyId) },
+        { $pull: { downVote: decDownVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully decDownVote user" });
+        }
+      }
+      );
+    });
+
+    app.get("/users/:storyId/downVote/:downVoteId", (req, res) => {
+      const storyId = req.params.storyId;
+      const downVoteId = req.params.downVoteId;
+      articleCollection.findOne(
+        {_id: ObjectId(storyId) , downVote: downVoteId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ upVote: true });
+            } else {
+              res.status(200).send({ upVote: false });
+            }
+          }
+        }
+      );
+    });
+ 
   } finally {
   }
 }
