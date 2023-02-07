@@ -67,7 +67,9 @@ async function run() {
       .db("freeMiumArticle")
       .collection("comments");
 
-
+const saveArticleCollection = client
+      .db("freeMiumArticle")
+      .collection("saveArticle");
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -686,6 +688,21 @@ console.log(storyId)
         }
       );
     });
+      
+        // save articles 
+      
+      app.post("/save-article", async (req, res) => {
+      const save = req.body;
+      const result = await saveArticleCollection.insertOne(save);
+      res.send(result);
+    });
+     
+      app.get("/save-article", async (req, res) =>{
+      const query = {};
+      const result = await saveArticleCollection.find(query).toArray();
+      res.send(result);
+    });
+   
  
   } finally {
   }
