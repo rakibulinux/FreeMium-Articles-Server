@@ -13,10 +13,10 @@ const port = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
-// sslcommerz
-const store_id = process.env.STORE_ID;
-const store_passwd = process.env.STORE_PASSWORD;
-const is_live = false; //true for live, false for sandbox
+// sslcommerz 
+const store_id = process.env.STORE_ID
+const store_passwd = process.env.STORE_PASSWORD
+const is_live = false //true for live, false for sandbox
 
 // Mongo DB Connections
 const uri = process.env.MONGODB_URI;
@@ -63,6 +63,12 @@ async function run() {
       .db("freeMiumArticle")
       .collection("payment");
 
+    // comment collection 
+    const commentCollection = client
+      .db("freeMiumArticle")
+      .collection("comments");
+
+
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -108,7 +114,7 @@ async function run() {
       res.send(result);
     });
     // get user data
-    app.get("/user", async (req, res) => {
+    app.get("/user", async (req, res) =>{
       const query = {};
       const result = await usersCollection.find(query).limit(6).toArray();
       res.send(result);
@@ -470,10 +476,28 @@ category api
       );
     });
 
-    /*=======================
-all reportedItems api
-========================
-*/
+    // User comment  on article  post to the database
+    app.post('/comments', async (req, res) => {
+      const comments = req.body;
+      const result = await commentCollection.insertOne(comments);
+      res.send(result);
+
+    });
+
+    // User comment  on article get from the database
+
+    app.get('/comments', async (req, res) => {
+      let query = {};
+      if (req.query.articleId) {
+        query = {
+          articleId: req.query.articleId
+        }
+      }
+      const cursor = commentCollection.find(query).sort({ "_id": -1 })
+      const comments = await cursor.toArray();
+      res.send(comments)
+    });
+
 
     //  reported story
     app.put("/story/reportedStory/:id", async (req, res) => {
