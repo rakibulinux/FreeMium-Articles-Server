@@ -7,11 +7,13 @@ const server = require("http").Server(app);
 const io = require("socket.io")(server);
 require("dotenv").config();
 const SSLCommerzPayment = require("sslcommerz-lts");
+const cookieParser = require("cookie-parser");
 const port = process.env.PORT;
 
 // middlewares
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // sslcommerz
 const store_id = process.env.STORE_ID;
@@ -53,6 +55,7 @@ async function run() {
     const notificationCollection = client
       .db("freeMiumArticle")
       .collection("notifications");
+    const viewsCollection = client.db("freeMiumArticle").collection("views");
     const articleCollection = client
       .db("freeMiumArticle")
       .collection("homePosts");
@@ -175,17 +178,9 @@ async function run() {
       res.send(article);
     });
 
-    //data with article id
-    app.get("/view-story/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const result = await articleCollection.findOne(query);
-      res.send(result);
-    });
-
     /*========================
-category api
-========================= */
+            category api
+      ======================== */
     // create new category
     app.post("/addNewCategory", async (req, res) => {
       const category = req.body;
@@ -214,13 +209,8 @@ category api
       const story = await articleCollection.insertOne(body);
       res.send(story);
     });
-    app.get("/view-story/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const story = await articleCollection.findOne(query);
-      res.send(story);
-    });
 
+    // Payment route
     app.get("/payment-user/:id", async (req, res) => {
       const { id } = req.params;
 
@@ -249,9 +239,7 @@ category api
     //User follow section
     app.post("/users/follow", (req, res) => {
       const userId = req.body.userId;
-      console.log(userId);
       const followingId = req.body.followingId;
-      console.log(followingId);
       usersCollection.updateOne(
         { _id: ObjectId(userId) },
         { $addToSet: { following: followingId } },
@@ -284,8 +272,6 @@ category api
     app.get("/users/:userId/following/:followingId", (req, res) => {
       const userId = req.params.userId;
       const followingId = req.params.followingId;
-      console.log(userId);
-      console.log(followingId);
       usersCollection.findOne(
         { _id: ObjectId(userId), following: followingId },
         (error, result) => {
@@ -301,6 +287,7 @@ category api
         }
       );
     });
+
     // Search route
     app.get("/search", async (req, res) => {
       try {
@@ -348,8 +335,6 @@ category api
         ship_country: "Bangladesh",
       };
 
-      // console.log(data);
-
       const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
       sslcz.init(data).then((apiResponse) => {
         // Redirect the user to payment gateway
@@ -363,7 +348,6 @@ category api
           paid: false,
         });
         res.send({ url: GatewayPageURL });
-        // console.log('Redirecting to: ', GatewayPageURL)
       });
       // res.send(data)
     });
@@ -375,6 +359,11 @@ category api
       const result = await paymentCollection.updateOne(
         { transactionId },
         { $set: { paid: true, paidTime: new Date() } }
+      );
+
+      const userPaid = await usersCollection.updateOne(
+        { transactionId },
+        { $set: { isPaid: true, paidTime: new Date() } }
       );
 
       if (result.modifiedCount > 0) {
@@ -509,46 +498,87 @@ all reportedItems api
     });
     app.get("/view-story/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const story = await articleCollection.findOne(query);
-      res.send(story);
+      const storyId = { _id: ObjectId(id) };
+      const userId = req.headers["user-id"];
+      const visitorId = req.headers["visitor-id"];
+      const visitorMacAddress = req.headers["visitor-mac-address"];
+
+      articleCollection.findOne(storyId, async (err, story) => {
+        if (err) return console.log(err);
+        if (!story) return res.status(404).send({ error: "Story not found" });
+        const user = await usersCollection.findOne({ _id: ObjectId(userId) });
+
+        // Check if the visitor is a paid user
+        if (user.isPaid) {
+          return res.send(story);
+        }
+        // If the visitror is not paid user then run from here
+        else if (story.isPaid) {
+          const view = {
+            visitorId,
+            visitorMacAddress,
+            storyId,
+            viewedAt: new Date(),
+          };
+
+          // check if the visitor has already viewed this story
+          viewsCollection
+            .findOne({
+              visitorId,
+              visitorMacAddress,
+              storyId,
+            })
+            .then(async (existingView) => {
+              if (existingView) {
+                // visitor has already viewed this story, return the story
+                return articleCollection
+                  .findOne(storyId)
+                  .then((story) => res.json(story))
+                  .catch((err) => res.status(500).json({ error: err.message }));
+              }
+
+              // visitor has not viewed this story, check if they have reached their monthly limit
+              const oneMonthAgo = new Date();
+              oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+              return viewsCollection
+                .countDocuments({
+                  visitorId,
+                  visitorMacAddress,
+                  viewedAt: { $gte: oneMonthAgo },
+                })
+                .then((count) => {
+                  if (count >= 5) {
+                    return res.status(429).json({
+                      error: "You have reached your monthly view limit.",
+                    });
+                  }
+
+                  // visitor has not reached their monthly limit, add the view to the "views" collection
+                  return viewsCollection
+                    .insertOne(view)
+                    .then(() => {
+                      return articleCollection
+                        .findOne(storyId)
+                        .then((story) => res.json(story))
+                        .catch((err) =>
+                          res.status(500).json({ error: err.message })
+                        );
+                    })
+                    .catch((err) =>
+                      res.status(500).json({ error: err.message })
+                    );
+                })
+                .catch((err) => res.status(500).json({ error: err.message }));
+            })
+            .catch((err) => res.status(500).json({ error: err.message }));
+        } else if (user.isPaid) {
+          console.log(user.isPaid);
+          res.send(story);
+        } else {
+          res.send(story);
+        }
+      });
     });
-
-    // app.get("/view-story/:id", async (req, res) => {
-    //   const storyId = req.params.id;
-    //   const userId = req.headers.userid;
-
-    //   const story = await articleCollection.findOne({ _id: ObjectId(storyId) });
-
-    //   if (!story) {
-    //     return res.status(404).send({ message: "Story not found" });
-    //   }
-
-    //   const user = await usersCollection.findOne({ _id: ObjectId(userId) });
-
-    //   if (!user) {
-    //     return res.status(401).send({ message: "Unauthorized" });
-    //   }
-
-    //   if (user.paid === true) {
-    //     return res.send(story);
-    //   }
-
-    //   if (user.viewedStories[storyId] >= 5) {
-    //     return res
-    //       .status(403)
-    //       .send({ message: "This story is for premium users only" });
-    //   }
-
-    //   user.viewedStories[storyId] = (user.viewedStories[storyId] || 0) + 1;
-
-    //   await usersCollection.updateOne(
-    //     { _id: new mongodb.ObjectID(userId) },
-    //     { $set: { viewedStories: user.viewedStories } }
-    //   );
-
-    //   return res.send(story);
-    // });
   } finally {
   }
 }
