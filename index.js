@@ -183,9 +183,18 @@ async function run() {
       res.send(article);
     });
 
-    /*========================
-            category api
-      ======================== */
+    //data with article id
+    app.get("/view-story/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await articleCollection.findOne(query);
+      res.send(result);
+    });
+
+  /*========================
+        category api
+========================= */
+
     // create new category
     app.post("/addNewCategory", async (req, res) => {
       const category = req.body;
@@ -200,6 +209,15 @@ async function run() {
         .toArray();
       res.send(categoryButton);
     });
+
+    // get specific category by id
+    app.get("/categoryButton/:id", async (req, res) => {
+      const id = req.params.id;
+  
+      const query = { _id: ObjectId(id) };
+      const result = await categoryButtonCollection.findOne(query);
+      res.send(result );
+    });
     // delete category
     app.delete("/categoryButton/:id", async (req, res) => {
       const id = req.params.id;
@@ -208,6 +226,25 @@ async function run() {
       res.send(result);
     });
 
+ // updater category
+ app.put('/updateCategory/:id',async(req,res)=>{
+  const id = req.params.id;
+  const categoryName = req.body.categoryName
+  console.log(categoryName)
+  const filter= {_id:ObjectId(id)}
+  const options = { upsert: true };
+  const updatedDoc = {
+      $set:{
+        CategoryName:categoryName
+       }
+  }  
+  // console.log(updatedReviw)
+  const result = await categoryButtonCollection.updateOne(filter,updatedDoc,options)
+  res.send(result)
+})
+    /*====================
+         story api
+    ======================*/
     // store api
     app.post("/add-story", async (req, res) => {
       const body = req.body;
@@ -241,7 +278,11 @@ async function run() {
       const user = await usersCollection.findOne(query);
       res.send(user);
     });
-    //User follow section
+
+    /*=================
+    User follow section
+    ==================*/
+
     app.post("/users/follow", (req, res) => {
       const userId = req.body.userId;
       const followingId = req.body.followingId;
@@ -488,7 +529,10 @@ async function run() {
       res.send(comments);
     });
 
-    //  reported story
+
+    /*=================
+    reported story api
+    ==================*/
     app.put("/story/reportedStory/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
