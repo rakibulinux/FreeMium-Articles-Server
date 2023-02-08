@@ -8,15 +8,14 @@ const io = require("socket.io")(server);
 require("dotenv").config();
 const SSLCommerzPayment = require("sslcommerz-lts");
 const port = process.env.PORT;
-
 // middlewares
 app.use(cors());
 app.use(express.json());
 
-// sslcommerz
-const store_id = process.env.STORE_ID;
-const store_passwd = process.env.STORE_PASSWORD;
-const is_live = false; //true for live, false for sandbox
+// sslcommerz 
+const store_id = process.env.STORE_ID
+const store_passwd = process.env.STORE_PASSWORD
+const is_live = false //true for live, false for sandbox
 
 // Mongo DB Connections
 const uri = process.env.MONGODB_URI;
@@ -63,6 +62,12 @@ async function run() {
       .db("freeMiumArticle")
       .collection("payment");
 
+    // comment collection 
+    const commentCollection = client
+      .db("freeMiumArticle")
+      .collection("comments");
+
+
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -108,7 +113,7 @@ async function run() {
       res.send(result);
     });
     // get user data
-    app.get("/user", async (req, res) => {
+    app.get("/user", async (req, res) =>{
       const query = {};
       const result = await usersCollection.find(query).limit(6).toArray();
       res.send(result);
@@ -284,8 +289,7 @@ category api
     app.get("/users/:userId/following/:followingId", (req, res) => {
       const userId = req.params.userId;
       const followingId = req.params.followingId;
-      console.log(userId);
-      console.log(followingId);
+   
       usersCollection.findOne(
         { _id: ObjectId(userId), following: followingId },
         (error, result) => {
@@ -416,7 +420,9 @@ category api
         });
     });
 
-    // subscribe writter
+    /*===================
+    subscribe writter
+    =====================*/
     app.post("/users/subscrib", (req, res) => {
       const userId = req.body.userId;
 
@@ -470,10 +476,28 @@ category api
       );
     });
 
-    /*=======================
-all reportedItems api
-========================
-*/
+    // User comment  on article  post to the database
+    app.post('/comments', async (req, res) => {
+      const comments = req.body;
+      const result = await commentCollection.insertOne(comments);
+      res.send(result);
+
+    });
+
+    // User comment  on article get from the database
+
+    app.get('/comments', async (req, res) => {
+      let query = {};
+      if (req.query.articleId) {
+        query = {
+          articleId: req.query.articleId
+        }
+      }
+      const cursor = commentCollection.find(query).sort({ "_id": -1 })
+      const comments = await cursor.toArray();
+      res.send(comments)
+    });
+
 
     //  reported story
     app.put("/story/reportedStory/:id", async (req, res) => {
@@ -549,6 +573,120 @@ all reportedItems api
 
     //   return res.send(story);
     // });
+
+
+
+  /*============================
+    upVote  api
+    ============================*/
+    app.post("/users/upVote", (req, res) => {
+      const storyId = req.body.storyId;
+console.log(storyId)
+      const upVoteId = req.body.upVoteId;
+
+      articleCollection.updateOne(
+        { _id: ObjectId(storyId) },
+        { $addToSet: { upVote: upVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully upVoteing user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/decUpVote", (req, res) => {
+      const storyId = req.body.storyId;
+      const decUpVoteId = req.body.decUpVoteId;
+      articleCollection.updateOne(
+        {_id: ObjectId(storyId) },
+        { $pull: { upVote: decUpVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully decUpVoteing user" });
+          }
+        }
+      );
+    });
+
+    app.get("/users/:storyId/upVote/:upVoteId", (req, res) => {
+      const storyId = req.params.storyId;
+      const upVoteId = req.params.upVoteId;
+      articleCollection.findOne(
+        {_id: ObjectId(storyId) , upVote: upVoteId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ upVote: true });
+            } else {
+              res.status(200).send({ upVote: false });
+            }
+          }
+        }
+      );
+    });
+     /*============================
+     down vote api
+    ============================*/
+    app.post("/users/downVote", (req, res) => {
+      const storyId = req.body.storyId;
+console.log(storyId)
+      const downVoteId = req.body.downVoteId;
+
+      articleCollection.updateOne(
+        { _id: ObjectId(storyId) },
+        { $addToSet: { downVote: downVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully upVoteing user" });
+          }
+        }
+      );
+    });
+
+    app.post("/users/decDownVote", (req, res) => {
+      const storyId = req.body.storyId;
+      const decDownVoteId = req.body.decDownVoteId;
+      articleCollection.updateOne(
+        {_id: ObjectId(storyId) },
+        { $pull: { downVote: decDownVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully decDownVote user" });
+        }
+      }
+      );
+    });
+
+    app.get("/users/:storyId/downVote/:downVoteId", (req, res) => {
+      const storyId = req.params.storyId;
+      const downVoteId = req.params.downVoteId;
+      articleCollection.findOne(
+        {_id: ObjectId(storyId) , downVote: downVoteId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ upVote: true });
+            } else {
+              res.status(200).send({ upVote: false });
+            }
+          }
+        }
+      );
+    });
+ 
   } finally {
   }
 }
