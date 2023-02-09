@@ -183,8 +183,6 @@ async function run() {
       res.send(article);
     });
 
-<<<<<<< HEAD
-=======
     //data with article id
     app.get("/view-story/:id", async (req, res) => {
       const id = req.params.id;
@@ -210,7 +208,6 @@ async function run() {
       const result = await articleCollection.updateOne(filter, updateData, option)
       res.send(result)
   })
->>>>>>> sifat
     /*========================
         category api
       ======================== */
@@ -555,13 +552,9 @@ async function run() {
     
    
 
-<<<<<<< HEAD
     /*=================
     reported story api
     ==================*/
-=======
-    //   reported story
->>>>>>> sifat
     app.put("/story/reportedStory/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
