@@ -183,17 +183,9 @@ async function run() {
       res.send(article);
     });
 
-    //data with article id
-    app.get("/view-story/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const result = await articleCollection.findOne(query);
-      res.send(result);
-    });
-
-  /*========================
+    /*========================
         category api
-========================= */
+      ======================== */
 
     // create new category
     app.post("/addNewCategory", async (req, res) => {
@@ -213,10 +205,10 @@ async function run() {
     // get specific category by id
     app.get("/categoryButton/:id", async (req, res) => {
       const id = req.params.id;
-  
+
       const query = { _id: ObjectId(id) };
       const result = await categoryButtonCollection.findOne(query);
-      res.send(result );
+      res.send(result);
     });
     // delete category
     app.delete("/categoryButton/:id", async (req, res) => {
@@ -226,22 +218,26 @@ async function run() {
       res.send(result);
     });
 
- // updater category
- app.put('/updateCategory/:id',async(req,res)=>{
-  const id = req.params.id;
-  const categoryName = req.body.categoryName
-  console.log(categoryName)
-  const filter= {_id:ObjectId(id)}
-  const options = { upsert: true };
-  const updatedDoc = {
-      $set:{
-        CategoryName:categoryName
-       }
-  }  
-  // console.log(updatedReviw)
-  const result = await categoryButtonCollection.updateOne(filter,updatedDoc,options)
-  res.send(result)
-})
+    // updater category
+    app.put("/updateCategory/:id", async (req, res) => {
+      const id = req.params.id;
+      const categoryName = req.body.categoryName;
+      console.log(categoryName);
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          CategoryName: categoryName,
+        },
+      };
+      // console.log(updatedReviw)
+      const result = await categoryButtonCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
     /*====================
          story api
     ======================*/
@@ -528,7 +524,6 @@ async function run() {
       const comments = await cursor.toArray();
       res.send(comments);
     });
-
 
     /*=================
     reported story api
