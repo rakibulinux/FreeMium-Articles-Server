@@ -7,16 +7,18 @@ const server = require("http").Server(app);
 const io = require("socket.io")(server);
 require("dotenv").config();
 const SSLCommerzPayment = require("sslcommerz-lts");
+const cookieParser = require("cookie-parser");
 const port = process.env.PORT;
 
 // middlewares
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
-// sslcommerz 
-const store_id = process.env.STORE_ID
-const store_passwd = process.env.STORE_PASSWORD
-const is_live = false //true for live, false for sandbox
+// sslcommerz
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASSWORD;
+const is_live = false; //true for live, false for sandbox
 
 // Mongo DB Connections
 const uri = process.env.MONGODB_URI;
@@ -53,6 +55,7 @@ async function run() {
     const notificationCollection = client
       .db("freeMiumArticle")
       .collection("notifications");
+    const viewsCollection = client.db("freeMiumArticle").collection("views");
     const articleCollection = client
       .db("freeMiumArticle")
       .collection("homePosts");
@@ -63,11 +66,10 @@ async function run() {
       .db("freeMiumArticle")
       .collection("payment");
 
-    // comment collection 
+    // comment collection
     const commentCollection = client
       .db("freeMiumArticle")
       .collection("comments");
-
 
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
@@ -114,7 +116,7 @@ async function run() {
       res.send(result);
     });
     // get user data
-    app.get("/user", async (req, res) =>{
+    app.get("/user", async (req, res) => {
       const query = {};
       const result = await usersCollection.find(query).limit(6).toArray();
       res.send(result);
@@ -181,17 +183,10 @@ async function run() {
       res.send(article);
     });
 
-    //data with article id
-    app.get("/view-story/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const result = await articleCollection.findOne(query);
-      res.send(result);
-    });
-
     /*========================
-category api
-========================= */
+        category api
+      ======================== */
+
     // create new category
     app.post("/addNewCategory", async (req, res) => {
       const category = req.body;
@@ -206,6 +201,15 @@ category api
         .toArray();
       res.send(categoryButton);
     });
+
+    // get specific category by id
+    app.get("/categoryButton/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const query = { _id: ObjectId(id) };
+      const result = await categoryButtonCollection.findOne(query);
+      res.send(result);
+    });
     // delete category
     app.delete("/categoryButton/:id", async (req, res) => {
       const id = req.params.id;
@@ -214,19 +218,37 @@ category api
       res.send(result);
     });
 
+    // updater category
+    app.put("/updateCategory/:id", async (req, res) => {
+      const id = req.params.id;
+      const categoryName = req.body.categoryName;
+      console.log(categoryName);
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          CategoryName: categoryName,
+        },
+      };
+      // console.log(updatedReviw)
+      const result = await categoryButtonCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
+    /*====================
+         story api
+    ======================*/
     // store api
     app.post("/add-story", async (req, res) => {
       const body = req.body;
       const story = await articleCollection.insertOne(body);
       res.send(story);
     });
-    app.get("/view-story/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const story = await articleCollection.findOne(query);
-      res.send(story);
-    });
 
+    // Payment route
     app.get("/payment-user/:id", async (req, res) => {
       const { id } = req.params;
 
@@ -252,12 +274,14 @@ category api
       const user = await usersCollection.findOne(query);
       res.send(user);
     });
-    //User follow section
+
+    /*=================
+    User follow section
+    ==================*/
+
     app.post("/users/follow", (req, res) => {
       const userId = req.body.userId;
-      console.log(userId);
       const followingId = req.body.followingId;
-      console.log(followingId);
       usersCollection.updateOne(
         { _id: ObjectId(userId) },
         { $addToSet: { following: followingId } },
@@ -290,8 +314,7 @@ category api
     app.get("/users/:userId/following/:followingId", (req, res) => {
       const userId = req.params.userId;
       const followingId = req.params.followingId;
-      console.log(userId);
-      console.log(followingId);
+
       usersCollection.findOne(
         { _id: ObjectId(userId), following: followingId },
         (error, result) => {
@@ -307,6 +330,7 @@ category api
         }
       );
     });
+
     // Search route
     app.get("/search", async (req, res) => {
       try {
@@ -354,8 +378,6 @@ category api
         ship_country: "Bangladesh",
       };
 
-      // console.log(data);
-
       const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
       sslcz.init(data).then((apiResponse) => {
         // Redirect the user to payment gateway
@@ -369,7 +391,6 @@ category api
           paid: false,
         });
         res.send({ url: GatewayPageURL });
-        // console.log('Redirecting to: ', GatewayPageURL)
       });
       // res.send(data)
     });
@@ -381,6 +402,11 @@ category api
       const result = await paymentCollection.updateOne(
         { transactionId },
         { $set: { paid: true, paidTime: new Date() } }
+      );
+
+      const userPaid = await usersCollection.updateOne(
+        { transactionId },
+        { $set: { isPaid: true, paidTime: new Date() } }
       );
 
       if (result.modifiedCount > 0) {
@@ -422,7 +448,9 @@ category api
         });
     });
 
-    // subscribe writter
+    /*===================
+    subscribe writter
+    =====================*/
     app.post("/users/subscrib", (req, res) => {
       const userId = req.body.userId;
 
@@ -477,29 +505,29 @@ category api
     });
 
     // User comment  on article  post to the database
-    app.post('/comments', async (req, res) => {
+    app.post("/comments", async (req, res) => {
       const comments = req.body;
       const result = await commentCollection.insertOne(comments);
       res.send(result);
-
     });
 
     // User comment  on article get from the database
 
-    app.get('/comments', async (req, res) => {
+    app.get("/comments", async (req, res) => {
       let query = {};
       if (req.query.articleId) {
         query = {
-          articleId: req.query.articleId
-        }
+          articleId: req.query.articleId,
+        };
       }
-      const cursor = commentCollection.find(query).sort({ "_id": -1 })
+      const cursor = commentCollection.find(query).sort({ _id: -1 });
       const comments = await cursor.toArray();
-      res.send(comments)
+      res.send(comments);
     });
 
-
-    //  reported story
+    /*=================
+    reported story api
+    ==================*/
     app.put("/story/reportedStory/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
@@ -531,48 +559,200 @@ category api
       const result = await articleCollection.deleteOne(filter);
       res.send(result);
     });
+
     app.get("/view-story/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const story = await articleCollection.findOne(query);
-      res.send(story);
+      const storyId = { _id: ObjectId(id) };
+      const userId = req.headers["user-id"];
+      const visitorId = req.headers["visitor-id"];
+      const visitorMacAddress = req.headers["visitor-mac-address"];
+
+      // function to check if visitor has reached their monthly limit
+      const checkMonthlyLimit = async () => {
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        const count = await viewsCollection.countDocuments({
+          visitorId,
+          visitorMacAddress,
+          viewedAt: { $gte: oneMonthAgo },
+        });
+        return count >= 5;
+      };
+
+      // function to add a view to the "views" collection
+      const addView = async () => {
+        const view = {
+          visitorId,
+          visitorMacAddress,
+          storyId,
+          viewedAt: new Date(),
+        };
+        return viewsCollection.insertOne(view);
+      };
+
+      // get the story
+      const story = await articleCollection.findOne(storyId);
+
+      // check if user is logged in
+      if (story.isPaid && !userId) {
+        // check if visitor has already viewed this story
+        const existingView = await viewsCollection.findOne({
+          visitorId,
+          visitorMacAddress,
+          storyId,
+        });
+        if (existingView) {
+          // visitor has already viewed this story, return the story
+          return res.json(story);
+        }
+        // check if visitor has reached their monthly limit
+        if (await checkMonthlyLimit()) {
+          return res.status(429).json({
+            error: "You have reached your monthly view limit.",
+          });
+        }
+        // add the view to the "views" collection
+        await addView();
+        return res.json(story);
+      }
+
+      // user is logged in
+      const user = await usersCollection.findOne({ _id: ObjectId(userId) });
+      if (story.isPaid && user.isPaid) {
+        return res.send(story);
+      } else if (story.isPaid && userId) {
+        // check if visitor has already viewed this story
+        const existingView = await viewsCollection.findOne({
+          visitorId,
+          visitorMacAddress,
+          storyId,
+        });
+        if (existingView) {
+          // visitor has already viewed this story, return the story
+          return res.json(story);
+        }
+        // check if visitor has reached their monthly limit
+        if (await checkMonthlyLimit()) {
+          return res.status(429).json({
+            error: "You have reached your monthly view limit.",
+          });
+        }
+        // add the view to the "views" collection
+        await addView();
+        return res.json(story);
+      } else {
+        res.send(story);
+      }
     });
 
-    // app.get("/view-story/:id", async (req, res) => {
-    //   const storyId = req.params.id;
-    //   const userId = req.headers.userid;
+    /*============================
+    upVote  api
+    ============================*/
+    app.post("/users/upVote", (req, res) => {
+      const storyId = req.body.storyId;
+      const upVoteId = req.body.upVoteId;
 
-    //   const story = await articleCollection.findOne({ _id: ObjectId(storyId) });
+      articleCollection.updateOne(
+        { _id: ObjectId(storyId) },
+        { $addToSet: { upVote: upVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully upVoteing user" });
+          }
+        }
+      );
+    });
 
-    //   if (!story) {
-    //     return res.status(404).send({ message: "Story not found" });
-    //   }
+    app.post("/users/decUpVote", (req, res) => {
+      const storyId = req.body.storyId;
+      const decUpVoteId = req.body.decUpVoteId;
+      articleCollection.updateOne(
+        { _id: ObjectId(storyId) },
+        { $pull: { upVote: decUpVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully decUpVoteing user" });
+          }
+        }
+      );
+    });
 
-    //   const user = await usersCollection.findOne({ _id: ObjectId(userId) });
+    app.get("/users/:storyId/upVote/:upVoteId", (req, res) => {
+      const storyId = req.params.storyId;
+      const upVoteId = req.params.upVoteId;
+      articleCollection.findOne(
+        { _id: ObjectId(storyId), upVote: upVoteId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ upVote: true });
+            } else {
+              res.status(200).send({ upVote: false });
+            }
+          }
+        }
+      );
+    });
+    /*============================
+     down vote api
+    ============================*/
+    app.post("/users/downVote", (req, res) => {
+      const storyId = req.body.storyId;
+      const downVoteId = req.body.downVoteId;
 
-    //   if (!user) {
-    //     return res.status(401).send({ message: "Unauthorized" });
-    //   }
+      articleCollection.updateOne(
+        { _id: ObjectId(storyId) },
+        { $addToSet: { downVote: downVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully upVoteing user" });
+          }
+        }
+      );
+    });
 
-    //   if (user.paid === true) {
-    //     return res.send(story);
-    //   }
+    app.post("/users/decDownVote", (req, res) => {
+      const storyId = req.body.storyId;
+      const decDownVoteId = req.body.decDownVoteId;
+      articleCollection.updateOne(
+        { _id: ObjectId(storyId) },
+        { $pull: { downVote: decDownVoteId } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error updating user" });
+          } else {
+            res.status(200).send({ message: "Successfully decDownVote user" });
+          }
+        }
+      );
+    });
 
-    //   if (user.viewedStories[storyId] >= 5) {
-    //     return res
-    //       .status(403)
-    //       .send({ message: "This story is for premium users only" });
-    //   }
-
-    //   user.viewedStories[storyId] = (user.viewedStories[storyId] || 0) + 1;
-
-    //   await usersCollection.updateOne(
-    //     { _id: new mongodb.ObjectID(userId) },
-    //     { $set: { viewedStories: user.viewedStories } }
-    //   );
-
-    //   return res.send(story);
-    // });
+    app.get("/users/:storyId/downVote/:downVoteId", (req, res) => {
+      const storyId = req.params.storyId;
+      const downVoteId = req.params.downVoteId;
+      articleCollection.findOne(
+        { _id: ObjectId(storyId), downVote: downVoteId },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error fetching user" });
+          } else {
+            if (result) {
+              res.status(200).send({ upVote: true });
+            } else {
+              res.status(200).send({ upVote: false });
+            }
+          }
+        }
+      );
+    });
   } finally {
   }
 }
