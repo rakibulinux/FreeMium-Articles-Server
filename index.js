@@ -183,6 +183,34 @@ async function run() {
       res.send(article);
     });
 
+<<<<<<< HEAD
+=======
+    //data with article id
+    app.get("/view-story/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await articleCollection.findOne(query);
+      res.send(result);
+    });
+
+     // Edit Article
+     app.put('/editArticle/:id', async(req, res) =>{
+      const id = req.params.id
+      const filter = {_id: ObjectId(id)}
+      const data = req.body
+
+      const option = {upsert: true}
+      const updateData ={
+          $set: {
+            articleTitle: data.titles,
+            articleDetails: data.detailsStory,
+          }
+      }
+
+      const result = await articleCollection.updateOne(filter, updateData, option)
+      res.send(result)
+  })
+>>>>>>> sifat
     /*========================
         category api
       ======================== */
@@ -524,10 +552,16 @@ async function run() {
       const comments = await cursor.toArray();
       res.send(comments);
     });
+    
+   
 
+<<<<<<< HEAD
     /*=================
     reported story api
     ==================*/
+=======
+    //   reported story
+>>>>>>> sifat
     app.put("/story/reportedStory/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
