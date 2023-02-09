@@ -188,6 +188,23 @@ async function run() {
       res.send(result);
     });
 
+     // Edit Article
+     app.put('/editArticle/:id', async(req, res) =>{
+      const id = req.params.id
+      const filter = {_id: ObjectId(id)}
+      const data = req.body
+
+      const option = {upsert: true}
+      const updateData ={
+          $set: {
+            articleTitle: data.titles,
+            articleDetails: data.detailsStory,
+          }
+      }
+
+      const result = await articleCollection.updateOne(filter, updateData, option)
+      res.send(result)
+  })
     /*========================
 category api
 ========================= */
@@ -497,9 +514,10 @@ category api
       const comments = await cursor.toArray();
       res.send(comments)
     });
+    
+   
 
-
-    //  reported story
+    //   reported story
     app.put("/story/reportedStory/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
