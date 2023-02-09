@@ -564,6 +564,7 @@ async function run() {
       const result = await articleCollection.deleteOne(filter);
       res.send(result);
     });
+
     app.get("/view-story/:id", async (req, res) => {
       const id = req.params.id;
       const storyId = { _id: ObjectId(id) };
@@ -571,81 +572,82 @@ async function run() {
       const visitorId = req.headers["visitor-id"];
       const visitorMacAddress = req.headers["visitor-mac-address"];
 
-      articleCollection.findOne(storyId, async (err, story) => {
-        if (err) return console.log(err);
-        if (!story) return res.status(404).send({ error: "Story not found" });
-        const user = await usersCollection.findOne({ _id: ObjectId(userId) });
+      // function to check if visitor has reached their monthly limit
+      const checkMonthlyLimit = async () => {
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        const count = await viewsCollection.countDocuments({
+          visitorId,
+          visitorMacAddress,
+          viewedAt: { $gte: oneMonthAgo },
+        });
+        return count >= 5;
+      };
 
-        // Check if the visitor is a paid user
-        if (user.isPaid) {
-          return res.send(story);
+      // function to add a view to the "views" collection
+      const addView = async () => {
+        const view = {
+          visitorId,
+          visitorMacAddress,
+          storyId,
+          viewedAt: new Date(),
+        };
+        return viewsCollection.insertOne(view);
+      };
+
+      // get the story
+      const story = await articleCollection.findOne(storyId);
+
+      // check if user is logged in
+      if (story.isPaid && !userId) {
+        // check if visitor has already viewed this story
+        const existingView = await viewsCollection.findOne({
+          visitorId,
+          visitorMacAddress,
+          storyId,
+        });
+        if (existingView) {
+          // visitor has already viewed this story, return the story
+          return res.json(story);
         }
-        // If the visitror is not paid user then run from here
-        else if (story.isPaid) {
-          const view = {
-            visitorId,
-            visitorMacAddress,
-            storyId,
-            viewedAt: new Date(),
-          };
-
-          // check if the visitor has already viewed this story
-          viewsCollection
-            .findOne({
-              visitorId,
-              visitorMacAddress,
-              storyId,
-            })
-            .then(async (existingView) => {
-              if (existingView) {
-                // visitor has already viewed this story, return the story
-                return articleCollection
-                  .findOne(storyId)
-                  .then((story) => res.json(story))
-                  .catch((err) => res.status(500).json({ error: err.message }));
-              }
-
-              // visitor has not viewed this story, check if they have reached their monthly limit
-              const oneMonthAgo = new Date();
-              oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-              return viewsCollection
-                .countDocuments({
-                  visitorId,
-                  visitorMacAddress,
-                  viewedAt: { $gte: oneMonthAgo },
-                })
-                .then((count) => {
-                  if (count >= 5) {
-                    return res.status(429).json({
-                      error: "You have reached your monthly view limit.",
-                    });
-                  }
-
-                  // visitor has not reached their monthly limit, add the view to the "views" collection
-                  return viewsCollection
-                    .insertOne(view)
-                    .then(() => {
-                      return articleCollection
-                        .findOne(storyId)
-                        .then((story) => res.json(story))
-                        .catch((err) =>
-                          res.status(500).json({ error: err.message })
-                        );
-                    })
-                    .catch((err) =>
-                      res.status(500).json({ error: err.message })
-                    );
-                })
-                .catch((err) => res.status(500).json({ error: err.message }));
-            })
-            .catch((err) => res.status(500).json({ error: err.message }));
-        } else if (user.isPaid) {
-          console.log(user.isPaid);
-          res.send(story);
-        } else {
-          res.send(story);
+        // check if visitor has reached their monthly limit
+        if (await checkMonthlyLimit()) {
+          return res.status(429).json({
+            error: "You have reached your monthly view limit.",
+          });
         }
-      });
+        // add the view to the "views" collection
+        await addView();
+        return res.json(story);
+      }
+
+      // user is logged in
+      const user = await usersCollection.findOne({ _id: ObjectId(userId) });
+      if (story.isPaid && user.isPaid) {
+        return res.send(story);
+      } else if (story.isPaid && userId) {
+        // check if visitor has already viewed this story
+        const existingView = await viewsCollection.findOne({
+          visitorId,
+          visitorMacAddress,
+          storyId,
+        });
+        if (existingView) {
+          // visitor has already viewed this story, return the story
+          return res.json(story);
+        }
+        // check if visitor has reached their monthly limit
+        if (await checkMonthlyLimit()) {
+          return res.status(429).json({
+            error: "You have reached your monthly view limit.",
+          });
+        }
+        // add the view to the "views" collection
+        await addView();
+        return res.json(story);
+      } else {
+        res.send(story);
+      }
     });
 
     /*============================
