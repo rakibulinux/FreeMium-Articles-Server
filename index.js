@@ -616,7 +616,6 @@ async function run() {
     ============================*/
     app.post("/users/upVote", (req, res) => {
       const storyId = req.body.storyId;
-console.log(storyId)
       const upVoteId = req.body.upVoteId;
 
       articleCollection.updateOne(
@@ -630,6 +629,12 @@ console.log(storyId)
           }
         }
       );
+      // remov downvote id 
+      articleCollection.updateOne(
+        {_id: ObjectId(storyId) },
+        { $pull: { downVote: upVoteId  } },
+      );
+
     });
 
     app.post("/users/decUpVote", (req, res) => {
@@ -685,6 +690,11 @@ console.log(storyId)
           }
         }
       );
+      // remove upvote id
+      articleCollection.updateOne(
+        {_id: ObjectId(storyId) },
+        { $pull: { upVote: downVoteId } },
+      );
     });
 
     app.post("/users/decDownVote", (req, res) => {
@@ -701,6 +711,7 @@ console.log(storyId)
         }
       }
       );
+
     });
 
     app.get("/users/:storyId/downVote/:downVoteId", (req, res) => {
