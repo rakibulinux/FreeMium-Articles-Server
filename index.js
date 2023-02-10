@@ -5,7 +5,13 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const server = require("http").Server(app);
 const io = require("socket.io")(server);
+const axios = require("axios");
+const { Configuration, OpenAIApi } = require("openai");
 require("dotenv").config();
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
 const SSLCommerzPayment = require("sslcommerz-lts");
 const cookieParser = require("cookie-parser");
 const port = process.env.PORT;
@@ -645,8 +651,28 @@ async function run() {
       }
     });
 
+    app.post("/view-story/:id/upvote", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const post = await articleCollection.findOne(filter);
+      console.log(post);
+      post.upVotes += 1;
+      // await post.save();
+      res.json(post);
+    });
+
+    app.post("/view-story/:id/downvote", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const post = await articleCollection.findOne(filter);
+      console.log(post);
+      post.downVotes -= 1;
+      // await post.save();
+      res.json(post);
+    });
+
     /*============================
-    upVote  api
+      upVote  api
     ============================*/
     app.post("/users/upVote", (req, res) => {
       const storyId = req.body.storyId;
@@ -752,6 +778,68 @@ async function run() {
           }
         }
       );
+    });
+    app.get("/analytics", (req, res) => {
+      // Replace YOUR_API_KEY with your actual API key
+      const apiKey = process.env.FREEMIUM_APP_API_KEY;
+
+      axios
+        .get("https://www.googleapis.com/analytics/v3/data/ga", {
+          params: {
+            ids: `ga:${process.env.FREEMIUM_APP_MEASUREMENT_ID}`,
+            "start-date": "30daysAgo",
+            "end-date": "today",
+            metrics: "ga:sessions",
+          },
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+          },
+        })
+        .then((response) => {
+          res.json(response.data);
+        })
+        .catch((error) => {
+          res.status(500).json({ error: error.message });
+        });
+    });
+
+    app.post("/hexa-ai", async (req, res) => {
+      // Get the prompt from the request
+      const { prompt } = req.body;
+
+      // Generate a response with ChatGPT
+      const completion = await openai.createCompletion({
+        model: "text-davinci-003",
+        prompt: prompt,
+        temperature: 0,
+        max_tokens: 3000,
+        frequency_penalty: 0.5,
+        top_p: 1, // alternative to sampling with temperature, called nucleus sampling
+        frequency_penalty: 0.5, // Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
+        presence_penalty: 0,
+      });
+      res.send(completion.data.choices[0].text);
+
+      // try {
+      //   const prompt = req.body.prompt;
+      //   console.log(prompt);
+      //   const response = await openai.createCompletion({
+      //     model: "text-davinci-003",
+      //     prompt: `${prompt}`,
+      //     temperature: 0, // Higher values means the model will take more risks.
+      //     max_tokens: 3000, // The maximum number of tokens to generate in the completion. Most models have a context length of 2048 tokens (except for the newest models, which support 4096).
+      //     top_p: 1, // alternative to sampling with temperature, called nucleus sampling
+      //     frequency_penalty: 0.5, // Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
+      //     presence_penalty: 0, // Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.
+      //   });
+
+      //   res.status(200).send({
+      //     bot: response.data.choices[0].text,
+      //   });
+      // } catch (error) {
+      //   console.error(error);
+      //   res.status(500).send(error || "Something went wrong");
+      // }
     });
   } finally {
   }
