@@ -702,8 +702,10 @@ console.log(storyId)
       const result = await saveArticleCollection.find(query).toArray();
       res.send(result);
     });
-   
- 
+    app.get('/count/:user', async (req, res) => {
+    const count = await articleCollection.countDocuments({ user: req.params.userEmail });
+    res.send({ count });
+    });
   } finally {
   }
 }
