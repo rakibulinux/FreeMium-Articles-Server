@@ -74,6 +74,7 @@ async function run() {
 const saveArticleCollection = client
       .db("freeMiumArticle")
       .collection("saveArticle");
+
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -592,43 +593,33 @@ const saveArticleCollection = client
 
     app.get("/view-story/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const story = await articleCollection.findOne(query);
-      res.send(story);
-    });
+      const storyId = { _id: ObjectId(id) };
+      const userId = req.headers["user-id"];
+      const visitorId = req.headers["visitor-id"];
+      const visitorMacAddress = req.headers["visitor-mac-address"];
 
-    // app.get("/view-story/:id", async (req, res) => {
-    //   const storyId = req.params.id;
-    //   const userId = req.headers.userid;
+      // function to check if visitor has reached their monthly limit
+      const checkMonthlyLimit = async () => {
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        const count = await viewsCollection.countDocuments({
+          visitorId,
+          visitorMacAddress,
+          viewedAt: { $gte: oneMonthAgo },
+        });
+        return count >= 5;
+      };
 
-    //   const story = await articleCollection.findOne({ _id: ObjectId(storyId) });
-
-    //   if (!story) {
-    //     return res.status(404).send({ message: "Story not found" });
-    //   }
-
-    //   const user = await usersCollection.findOne({ _id: ObjectId(userId) });
-
-    //   if (!user) {
-    //     return res.status(401).send({ message: "Unauthorized" });
-    //   }
-
-    //   if (user.paid === true) {
-    //     return res.send(story);
-    //   }
-
-    //   if (user.viewedStories[storyId] >= 5) {
-    //     return res
-    //       .status(403)
-    //       .send({ message: "This story is for premium users only" });
-    //   }
-
-    //   user.viewedStories[storyId] = (user.viewedStories[storyId] || 0) + 1;
-
-    //   await usersCollection.updateOne(
-    //     { _id: new mongodb.ObjectID(userId) },
-    //     { $set: { viewedStories: user.viewedStories } }
-    //   );
+      // function to add a view to the "views" collection
+      const addView = async () => {
+        const view = {
+          visitorId,
+          visitorMacAddress,
+          storyId,
+          viewedAt: new Date(),
+        };
+        return viewsCollection.insertOne(view);
+      };
 
       // get the story
       const story = await articleCollection.findOne(storyId);
@@ -805,7 +796,26 @@ const saveArticleCollection = client
         }
       );
     });
- 
+
+      
+        // save articles 
+      
+      app.post("/save-article", async (req, res) => {
+      const save = req.body;
+      const result = await saveArticleCollection.insertOne(save);
+      res.send(result);
+    });
+     
+      app.get("/save-article", async (req, res) =>{
+      const query = {};
+      const result = await saveArticleCollection.find(query).toArray();
+      res.send(result);
+    });
+    app.get('/count/:user', async (req, res) => {
+    const count = await articleCollection.countDocuments({ user: req.params.userEmail });
+    res.send({ count });
+    });
+
   } finally {
   }
 }
