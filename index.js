@@ -690,6 +690,12 @@ async function run() {
           }
         }
       );
+      // remov downvote id 
+      articleCollection.updateOne(
+        {_id: ObjectId(storyId) },
+        { $pull: { downVote: upVoteId  } },
+      );
+
     });
 
     app.post("/users/decUpVote", (req, res) => {
@@ -744,6 +750,11 @@ async function run() {
           }
         }
       );
+      // remove upvote id
+      articleCollection.updateOne(
+        {_id: ObjectId(storyId) },
+        { $pull: { upVote: downVoteId } },
+      );
     });
 
     app.post("/users/decDownVote", (req, res) => {
@@ -760,6 +771,7 @@ async function run() {
           }
         }
       );
+
     });
 
     app.get("/users/:storyId/downVote/:downVoteId", (req, res) => {
