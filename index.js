@@ -1,13 +1,24 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
-const app = express();
+require("dotenv").config();
+const http = require("http");
 const cors = require("cors");
+const app = express();
 const jwt = require("jsonwebtoken");
-const server = require("http").Server(app);
-const io = require("socket.io")(server);
+app.use(cors());
+
+const httpServer = http.createServer(app);
+const { Server } = require("socket.io");
+const io = new Server(httpServer, {
+  cors: {
+    origin: "http://localhost:3000",
+    // or with an array of origins
+    methods: ["GET", "POST"],
+  },
+});
+
 const axios = require("axios");
 const { Configuration, OpenAIApi } = require("openai");
-require("dotenv").config();
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -17,10 +28,24 @@ const cookieParser = require("cookie-parser");
 const port = process.env.PORT;
 
 // middlewares
-app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 
+const messages = [];
+
+// Connection
+io.on("connection", (socket) => {
+  // console.log("Client connected");
+
+  socket.on("sendMessage", (message) => {
+    // console.log(`Received message: ${message}`);
+    io.emit("showMessage", message);
+  });
+
+  socket.on("disconnect", () => {
+    // console.log("Client disconnected");
+  });
+});
 // sslcommerz
 const store_id = process.env.STORE_ID;
 const store_passwd = process.env.STORE_PASSWORD;
@@ -62,6 +87,9 @@ async function run() {
       .db("freeMiumArticle")
       .collection("notifications");
     const viewsCollection = client.db("freeMiumArticle").collection("views");
+    const messagesCollection = client
+      .db("freeMiumArticle")
+      .collection("messages");
     const articleCollection = client
       .db("freeMiumArticle")
       .collection("homePosts");
@@ -109,6 +137,43 @@ async function run() {
       );
       res.send(updateUser);
     });
+
+    // Update user profile
+    // app.patch("/user/:userId", async (req, res) => {
+    //   try {
+    //     const updatedUser = usersCollection.updateOne(
+    //       req.params.userId,
+    //       { $set: req.body },
+    //       { new: true }
+    //     );
+
+    //     res.json(updatedUser);
+    //   } catch (err) {
+    //     res.status(500).json({ message: err.message });
+    //   }
+    // });
+    app.patch("/update-profile/:id", (req, res) => {
+      const id = req.params.id;
+      const user = req.body;
+
+      usersCollection.updateOne(
+        { _id: ObjectId(id) },
+        { $set: user },
+        (err, result) => {
+          if (err) {
+            console.error(err);
+            res
+              .status(500)
+              .send({ message: "Error updating the user profile" });
+          } else {
+            res
+              .status(200)
+              .send({ message: "User profile updated successfully" });
+          }
+        }
+      );
+    });
+
     // get user data
     app.get("/all-users", async (req, res) => {
       const query = {};
@@ -649,7 +714,10 @@ async function run() {
 
       // user is logged in
       const user = await usersCollection.findOne({ _id: ObjectId(userId) });
+
       if (story.isPaid && user.isPaid) {
+        return res.send(story);
+      } else if (story.userId === userId) {
         return res.send(story);
       } else if (story.isPaid && userId) {
         // check if visitor has already viewed this story
@@ -897,13 +965,87 @@ async function run() {
       //   res.status(500).send(error || "Something went wrong");
       // }
     });
+
+    app.post("/message", (req, res) => {
+      const { sender, recipient, message } = req.body;
+      // insert the message into the database
+      messagesCollection.insertOne(
+        {
+          sender,
+          recipient,
+          message,
+          timestamp: new Date(),
+        },
+        (err, result) => {
+          if (err) {
+            return res.status(500).send({ error: err });
+          }
+          return res.send({ message: "Message sent successfully" });
+        }
+      );
+    });
+
+    app.get("/messages", (req, res) => {
+      messagesCollection.find({}).toArray((err, messages) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).send(err);
+        }
+        res.send(messages);
+        client.close();
+      });
+    });
+
+    // app.post("/sendMessage", (req, res) => {
+    //   const { sender, recipient, message } = req.body;
+    //   // insert the message into the database
+    //   messagesCollection.insertOne(
+    //     {
+    //       sender,
+    //       recipient,
+    //       message,
+    //       timestamp: new Date(),
+    //     },
+    //     (err, result) => {
+    //       if (err) {
+    //         return res.status(500).send({ error: err });
+    //       }
+    //       return res.send({ message: "Message sent successfully" });
+    //     }
+    //   );
+    // });
+    // // Express route for retrieving messages for a user
+    // app.get("/getMessages/:recipient", async (req, res) => {
+    //   try {
+    //     const recipient = req.params.recipient;
+
+    //     // Retrieve the messages from the database
+    //     const messages = messagesCollection.find({ recipient });
+
+    //     return res.status(200).json({ messages });
+    //   } catch (error) {
+    //     return res.status(500).json({ error: error.message });
+    //   }
+    // });
+    // app.get("/messages", (req, res) => {
+    //   // retrieve all messages for the current user
+    //   messagesCollection
+    //     .find({
+    //       $or: [{ sender: req.query.userId }, { recipient: req.query.userId }],
+    //     })
+    //     .toArray((err, messages) => {
+    //       if (err) {
+    //         return res.status(500).send({ error: err });
+    //       }
+    //       return res.send({ messages });
+    //     });
+    // });
   } finally {
   }
 }
 //
 run().catch((err) => console.error(err));
 
-// Connection
-app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log("API running in port: " + port);
 });
