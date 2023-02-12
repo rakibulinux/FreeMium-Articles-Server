@@ -966,35 +966,100 @@ async function run() {
       // }
     });
 
-    app.post("/message", (req, res) => {
-      const { sender, recipient, message } = req.body;
-      // insert the message into the database
-      messagesCollection.insertOne(
-        {
-          sender,
-          recipient,
-          message,
-          timestamp: new Date(),
-        },
-        (err, result) => {
-          if (err) {
-            return res.status(500).send({ error: err });
-          }
-          return res.send({ message: "Message sent successfully" });
-        }
-      );
+    // Create endpoint for getting all conversations
+    app.get("/conversations", async (req, res) => {
+      // Find all conversations
+      const allConversations = await messagesCollection.find({}).toArray();
+
+      // Return the conversations
+      res.json(allConversations);
     });
 
-    app.get("/messages", (req, res) => {
-      messagesCollection.find({}).toArray((err, messages) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).send(err);
-        }
-        res.send(messages);
-        client.close();
+    // Create endpoint for getting all messages in a conversation
+    app.get("/conversations/:id", async (req, res) => {
+      // Connect to the MongoDB database
+      // Find the conversation by its ID
+      const conversation = await messagesCollection.findOne({
+        _id: ObjectId(req.params.id),
       });
+
+      // Return the messages in the conversation
+      res.json(conversation.messages);
     });
+
+    // Create endpoint for creating a new conversation
+    app.post("/conversations", async (req, res) => {
+      // Insert a new conversation
+      const newConversation = {
+        participants: [req.body.senderId, req.body.receiverId],
+        messages: [],
+        timestamp: new Date(),
+      };
+      const result = await messagesCollection.insertOne(newConversation);
+
+      // Return the ID of the new conversation
+      res.json({ id: result.insertedId });
+    });
+
+    // Create endpoint for adding a new message to a conversation
+    app.post("/conversations/:id/messages", async (req, res) => {
+      try {
+        const conversationId = req.params.id;
+        const newMessage = req.body;
+
+        // Find the conversation with the specified id
+        const conversation = await messagesCollection.findOne({
+          _id: ObjectId(conversationId),
+        });
+
+        // Push the new message to the conversation's messages array
+        conversation.messages.push(newMessage);
+
+        // Save the updated conversation back to the database
+        await conversationsCollection.updateOne(
+          { _id: ObjectId(conversationId) },
+          { $set: { messages: conversation.messages } }
+        );
+
+        // Return a success response
+        res.status(200).json({ message: "Message added successfully" });
+      } catch (error) {
+        console.error(error);
+        res
+          .status(500)
+          .json({ error: "An error occurred while adding the message" });
+      }
+    });
+
+    // app.post("/message", (req, res) => {
+    //   const { sender, recipient, message } = req.body;
+    //   // insert the message into the database
+    //   messagesCollection.insertOne(
+    //     {
+    //       sender,
+    //       recipient,
+    //       message,
+    //       timestamp: new Date(),
+    //     },
+    //     (err, result) => {
+    //       if (err) {
+    //         return res.status(500).send({ error: err });
+    //       }
+    //       return res.send({ message: "Message sent successfully" });
+    //     }
+    //   );
+    // });
+
+    // app.get("/messages", (req, res) => {
+    //   messagesCollection.find({}).toArray((err, messages) => {
+    //     if (err) {
+    //       console.error(err);
+    //       return res.status(500).send(err);
+    //     }
+    //     res.send(messages);
+    //     client.close();
+    //   });
+    // });
 
     // app.post("/sendMessage", (req, res) => {
     //   const { sender, recipient, message } = req.body;
