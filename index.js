@@ -8,6 +8,7 @@ const io = require("socket.io")(server);
 require("dotenv").config();
 const SSLCommerzPayment = require("sslcommerz-lts");
 const cookieParser = require("cookie-parser");
+const { log } = require("console");
 const port = process.env.PORT;
 
 // middlewares
@@ -428,9 +429,11 @@ async function run() {
         { transactionId },
         { $set: { paid: true, paidTime: new Date() } }
       );
-
+      const paidUser = await paymentCollection.findOne({ transactionId })
+      // console.log(paidUser.email)
+        const PaidUserEmail = paidUser.email
       const userPaid = await usersCollection.updateOne(
-        { transactionId },
+        {email: PaidUserEmail},
         { $set: { isPaid: true, paidTime: new Date() } }
       );
 
