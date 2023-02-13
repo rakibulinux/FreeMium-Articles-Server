@@ -297,7 +297,7 @@ category api
             res.status(500).send({ error: "Error fetching user" });
           } else {
             if (result) {
-              res.status(200).send({ isFollowing: true });
+              res.status(200).send({ ising: true });
             } else {
               res.status(200).send({ isFollowing: false });
             }
@@ -479,6 +479,13 @@ category api
     // User comment  on article  post to the database
     app.post('/comments', async (req, res) => {
       const comments = req.body;
+      const result = await commentCollection.insertOne(comments);
+      res.send(result);
+
+    });
+    // reply comment data to db
+    app.post('/comments/:id', async (req, res) => {
+      const replyComments = req.body;
       const result = await commentCollection.insertOne(comments);
       res.send(result);
 
