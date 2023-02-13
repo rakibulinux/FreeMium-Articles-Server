@@ -502,9 +502,9 @@ async function run() {
       );
       const paidUser = await paymentCollection.findOne({ transactionId })
       // console.log(paidUser.email)
-        const PaidUserEmail = paidUser.email
+      const PaidUserEmail = paidUser.email
       const userPaid = await usersCollection.updateOne(
-        {email: PaidUserEmail},
+        { email: PaidUserEmail },
         { $set: { isPaid: true, paidTime: new Date() } }
       );
 
@@ -609,13 +609,41 @@ async function run() {
       const result = await commentCollection.insertOne(comments);
       res.send(result);
     });
+
     // reply comment data to db
-    app.post('/comments/:id', async (req, res) => {
-      const replyComments = req.body;
-      const result = await commentCollection.insertOne(comments);
-      res.send(result);
+    app.post('/replyComment/:id', async (req, res) => {
+      const id = req.params.id;
+      const replyData = req.body;
+      console.log(replyData);
+      commentCollection.updateOne(
+        { _id: ObjectId(id) },
+        { $addToSet: { replyComment: replyData } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error reply user" });
+          } else {
+            res.status(200).send({ message: "Successfully reply to user" });
+          }
+        }
+      );
 
     });
+
+    // app.post("/users/decUpVote", (req, res) => {
+    //   const storyId = req.body.storyId;
+    //   const decUpVoteId = req.body.decUpVoteId;
+    //   articleCollection.updateOne(
+    //     { _id: ObjectId(storyId) },
+    //     { $pull: { upVote: decUpVoteId } },
+    //     (error, result) => {
+    //       if (error) {
+    //         res.status(500).send({ error: "Error updating user" });
+    //       } else {
+    //         res.status(200).send({ message: "Successfully decUpVoteing user" });
+    //       }
+    //     }
+    //   );
+    // });
 
     // User comment  on article get from the database
 
