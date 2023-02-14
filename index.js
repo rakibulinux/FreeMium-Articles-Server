@@ -368,7 +368,7 @@ async function run() {
       const email = req.params.userId;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      res.send(user);
+      res.json(user);
     });
 
     /*=================
@@ -1042,6 +1042,21 @@ async function run() {
       } catch (error) {
         res.status(500).send({ message: "Failed to import story" });
       }
+    });
+
+    // Get all reviews for a specific user
+    app.get("/my-stories", async (req, res) => {
+      const email = req.query.email;
+      let query = {};
+
+      if (email) {
+        query = {
+          userEmail: email,
+        };
+      }
+      // console.log(email, query);
+      const articles = await articleCollection.find(query).toArray();
+      res.send(articles);
     });
     // app.post("/message", (req, res) => {
     //   const { sender, recipient, message } = req.body;
