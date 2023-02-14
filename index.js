@@ -369,7 +369,7 @@ async function run() {
       const email = req.params.userId;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      res.send(user);
+      res.json(user);
     });
 
     /*=================
@@ -1034,6 +1034,33 @@ async function run() {
       }
     });
 
+    // Endpoint to import story
+    app.post("/import-story", async (req, res) => {
+      try {
+        const storyUrl = req.body.url;
+        const response = await axios.get(storyUrl);
+        const story = response.data;
+        await articleCollection.insertOne({ story });
+        res.status(200).send({ message: "Story imported successfully" });
+      } catch (error) {
+        res.status(500).send({ message: "Failed to import story" });
+      }
+    });
+
+    // Get all reviews for a specific user
+    app.get("/my-stories", async (req, res) => {
+      const email = req.query.email;
+      let query = {};
+
+      if (email) {
+        query = {
+          userEmail: email,
+        };
+      }
+      // console.log(email, query);
+      const articles = await articleCollection.find(query).toArray();
+      res.send(articles);
+    });
     // app.post("/message", (req, res) => {
     //   const { sender, recipient, message } = req.body;
     //   // insert the message into the database
