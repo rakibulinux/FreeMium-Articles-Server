@@ -659,6 +659,17 @@ async function run() {
       res.send(comments);
     });
 
+
+    // delete comment
+    app.delete("/comment/deleteComment/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log(id);
+      const filter = { _id: ObjectId(id) };
+      const result = await commentCollection.deleteOne(filter);
+      
+      res.send(result);
+    });
+
     /*=================
     reported story api
     ==================*/
