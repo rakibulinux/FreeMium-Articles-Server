@@ -1031,6 +1031,18 @@ async function run() {
       }
     });
 
+    // Endpoint to import story
+    app.post("/import-story", async (req, res) => {
+      try {
+        const storyUrl = req.body.url;
+        const response = await axios.get(storyUrl);
+        const story = response.data;
+        await articleCollection.insertOne({ story });
+        res.status(200).send({ message: "Story imported successfully" });
+      } catch (error) {
+        res.status(500).send({ message: "Failed to import story" });
+      }
+    });
     // app.post("/message", (req, res) => {
     //   const { sender, recipient, message } = req.body;
     //   // insert the message into the database
