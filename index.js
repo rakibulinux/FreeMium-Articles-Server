@@ -419,7 +419,7 @@ async function run() {
             res.status(500).send({ error: "Error fetching user" });
           } else {
             if (result) {
-              res.status(200).send({ isFollowing: true });
+              res.status(200).send({ ising: true });
             } else {
               res.status(200).send({ isFollowing: false });
             }
@@ -502,9 +502,9 @@ async function run() {
       );
       const paidUser = await paymentCollection.findOne({ transactionId })
       // console.log(paidUser.email)
-        const PaidUserEmail = paidUser.email
+      const PaidUserEmail = paidUser.email
       const userPaid = await usersCollection.updateOne(
-        {email: PaidUserEmail},
+        { email: PaidUserEmail },
         { $set: { isPaid: true, paidTime: new Date() } }
       );
 
@@ -610,6 +610,41 @@ async function run() {
       res.send(result);
     });
 
+    // reply comment data to db
+    app.post('/replyComment/:id', async (req, res) => {
+      const id = req.params.id;
+      const replyData = req.body;
+      console.log(replyData);
+      commentCollection.updateOne(
+        { _id: ObjectId(id) },
+        { $addToSet: { replyComment: replyData } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error reply user" });
+          } else {
+            res.status(200).send({ message: "Successfully reply to user" });
+          }
+        }
+      );
+
+    });
+
+    // app.post("/users/decUpVote", (req, res) => {
+    //   const storyId = req.body.storyId;
+    //   const decUpVoteId = req.body.decUpVoteId;
+    //   articleCollection.updateOne(
+    //     { _id: ObjectId(storyId) },
+    //     { $pull: { upVote: decUpVoteId } },
+    //     (error, result) => {
+    //       if (error) {
+    //         res.status(500).send({ error: "Error updating user" });
+    //       } else {
+    //         res.status(200).send({ message: "Successfully decUpVoteing user" });
+    //       }
+    //     }
+    //   );
+    // });
+
     // User comment  on article get from the database
 
     app.get("/comments", async (req, res) => {
@@ -622,6 +657,17 @@ async function run() {
       const cursor = commentCollection.find(query).sort({ _id: -1 });
       const comments = await cursor.toArray();
       res.send(comments);
+    });
+
+
+    // delete comment
+    app.delete("/comment/deleteComment/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log(id);
+      const filter = { _id: ObjectId(id) };
+      const result = await commentCollection.deleteOne(filter);
+      
+      res.send(result);
     });
 
     /*=================
