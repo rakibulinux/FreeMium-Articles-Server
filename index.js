@@ -6,7 +6,8 @@ const cors = require("cors");
 const app = express();
 const jwt = require("jsonwebtoken");
 app.use(cors());
-
+const cheerio = require("cheerio");
+const sanitizeHtml = require("sanitize-html");
 const httpServer = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
@@ -500,9 +501,9 @@ async function run() {
         { transactionId },
         { $set: { paid: true, paidTime: new Date() } }
       );
-      const paidUser = await paymentCollection.findOne({ transactionId })
+      const paidUser = await paymentCollection.findOne({ transactionId });
       // console.log(paidUser.email)
-      const PaidUserEmail = paidUser.email
+      const PaidUserEmail = paidUser.email;
       const userPaid = await usersCollection.updateOne(
         { email: PaidUserEmail },
         { $set: { isPaid: true, paidTime: new Date() } }
@@ -611,7 +612,7 @@ async function run() {
     });
 
     // reply comment data to db
-    app.post('/replyComment/:id', async (req, res) => {
+    app.post("/replyComment/:id", async (req, res) => {
       const id = req.params.id;
       const replyData = req.body;
       console.log(replyData);
@@ -626,7 +627,6 @@ async function run() {
           }
         }
       );
-
     });
 
     // app.post("/users/decUpVote", (req, res) => {
@@ -659,14 +659,13 @@ async function run() {
       res.send(comments);
     });
 
-
     // delete comment
     app.delete("/comment/deleteComment/:id", async (req, res) => {
       const id = req.params.id;
       // console.log(id);
       const filter = { _id: ObjectId(id) };
       const result = await commentCollection.deleteOne(filter);
-      
+
       res.send(result);
     });
 
@@ -1083,10 +1082,46 @@ async function run() {
     // Endpoint to import story
     app.post("/import-story", async (req, res) => {
       try {
-        const storyUrl = req.body.url;
-        const response = await axios.get(storyUrl);
-        const story = response.data;
-        await articleCollection.insertOne({ story });
+        const { url, extra } = req.body;
+        console.log(url, extra);
+        const {
+          userId,
+          userEmail,
+          writerName,
+          writerImg,
+          articleSubmitDate,
+          articleRead,
+          category,
+        } = extra;
+        const response = await axios.get(url);
+        const $ = cheerio.load(response.data);
+        const articleTitle = sanitizeHtml($("h1").text());
+        const articleImg = sanitizeHtml(
+          $("meta[property='og:image']").attr("content")
+        );
+        const articleDetails = $("section").text();
+        // const cleanContent = articleDetails.replace(
+        //   /document\.domain\s*=\s*document\.domain;\s*Open in appSign upSign InWriteSign upSign InPublished inJavaScript in Plain EnglishCan DurmusFollowJul \d{1,2}, \d{4}·\d+ min read·Member-onlySave/g,
+        //   ""
+        // );
+
+        // const articleTitle = sanitizeHtml($("h1").text());
+        // const articleImg = sanitizeHtml(
+        //   $("meta[property='og:image']").attr("content")
+        // );
+        // const articleDetails = sanitizeHtml($("body").text());
+        await articleCollection.insertOne({
+          articleDetails,
+          userId,
+          userEmail,
+          writerName,
+          writerImg,
+          articleTitle,
+          articleSubmitDate,
+          articleRead,
+          articleImg,
+          category,
+        });
         res.status(200).send({ message: "Story imported successfully" });
       } catch (error) {
         res.status(500).send({ message: "Failed to import story" });
