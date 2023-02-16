@@ -12,7 +12,7 @@ const httpServer = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "https://freemiumarticles.web.app"],
     // or with an array of origins
     methods: ["GET", "POST"],
   },
@@ -110,7 +110,7 @@ async function run() {
     const saveArticleCollection = client
       .db("freeMiumArticle")
       .collection("saveArticle");
-      // API collection
+    // API collection
     const apiAnsCollection = client
       .db("freeMiumArticle")
       .collection("apiAnsCollection");
@@ -994,11 +994,11 @@ async function run() {
         frequency_penalty: 0.5, // Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
         presence_penalty: 0,
       });
-      
+
       await apiAnsCollection.insertOne({
         email: userEmail,
         question: prompt,
-        answer: completion.data.choices[0].text
+        answer: completion.data.choices[0].text,
       });
       // console.log(userEmail);
       res.send(completion.data.choices[0].text);
@@ -1025,20 +1025,20 @@ async function run() {
       // }
     });
 
-    app.get("/apiAns", async(req, res)=>{
-      const email = req.query.email
-     
-      const allApiAns = await apiAnsCollection.find({email}).toArray()
-      res.send(allApiAns)
-    })
+    app.get("/apiAns", async (req, res) => {
+      const email = req.query.email;
 
-    app.get("/hexa-ai/:id", async (req,res)=>{
-      const id = req.params.id
-      
+      const allApiAns = await apiAnsCollection.find({ email }).toArray();
+      res.send(allApiAns);
+    });
+
+    app.get("/hexa-ai/:id", async (req, res) => {
+      const id = req.params.id;
+
       const historyId = { _id: ObjectId(id) };
-      const historyAns = await apiAnsCollection.findOne(historyId)
-      res.send(historyAns)
-    })
+      const historyAns = await apiAnsCollection.findOne(historyId);
+      res.send(historyAns);
+    });
     // Create endpoint for getting all conversations
     app.get("/conversations", async (req, res) => {
       // Find all conversations
@@ -1156,14 +1156,7 @@ async function run() {
     // Get all reviews for a specific user
     app.get("/my-stories", async (req, res) => {
       const email = req.query.email;
-      let query = {};
-
-      if (email) {
-        query = {
-          userEmail: email,
-        };
-      }
-      // console.log(email, query);
+      let query = { userEmail: email };
       const articles = await articleCollection.find(query).toArray();
       res.send(articles);
     });
