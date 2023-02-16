@@ -424,7 +424,7 @@ async function run() {
             res.status(500).send({ error: "Error fetching user" });
           } else {
             if (result) {
-              res.status(200).send({ ising: true });
+              res.status(200).send({ isFollowing: true });
             } else {
               res.status(200).send({ isFollowing: false });
             }
