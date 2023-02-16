@@ -109,6 +109,10 @@ async function run() {
     const saveArticleCollection = client
       .db("freeMiumArticle")
       .collection("saveArticle");
+      // API collection
+    const apiAnsCollection = client
+      .db("freeMiumArticle")
+      .collection("apiAnsCollection");
 
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
@@ -319,7 +323,7 @@ async function run() {
     app.put("/updateCategory/:id", async (req, res) => {
       const id = req.params.id;
       const categoryName = req.body.categoryName;
-      console.log(categoryName);
+      // console.log(categoryName);
       const filter = { _id: ObjectId(id) };
       const options = { upsert: true };
       const updatedDoc = {
@@ -751,7 +755,7 @@ async function run() {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const post = await articleCollection.findOne(filter);
-      console.log(post);
+      // console.log(post);
       post.upVotes += 1;
       // await post.save();
       res.json(post);
@@ -761,7 +765,7 @@ async function run() {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const post = await articleCollection.findOne(filter);
-      console.log(post);
+      // console.log(post);
       post.downVotes -= 1;
       // await post.save();
       res.json(post);
@@ -932,7 +936,7 @@ async function run() {
 
     app.post("/hexa-ai", async (req, res) => {
       // Get the prompt from the request
-      const { prompt } = req.body;
+      const { prompt, userEmail } = req.body;
 
       // Generate a response with ChatGPT
       const completion = await openai.createCompletion({
@@ -945,6 +949,13 @@ async function run() {
         frequency_penalty: 0.5, // Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
         presence_penalty: 0,
       });
+      
+      await apiAnsCollection.insertOne({
+        email: userEmail,
+        question: prompt,
+        answer: completion.data.choices[0].text
+      });
+      // console.log(userEmail);
       res.send(completion.data.choices[0].text);
 
       // try {
@@ -969,6 +980,20 @@ async function run() {
       // }
     });
 
+    app.get("/apiAns", async(req, res)=>{
+      const email = req.query.email
+     
+      const allApiAns = await apiAnsCollection.find({email}).toArray()
+      res.send(allApiAns)
+    })
+
+    app.get("/hexa-ai/:id", async (req,res)=>{
+      const id = req.params.id
+      
+      const historyId = { _id: ObjectId(id) };
+      const historyAns = await apiAnsCollection.findOne(historyId)
+      res.send(historyAns)
+    })
     // Create endpoint for getting all conversations
     app.get("/conversations", async (req, res) => {
       // Find all conversations
