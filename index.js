@@ -983,11 +983,7 @@ async function run() {
 
     app.post("/hexa-ai", async (req, res) => {
       // Get the prompt from the request
-<<<<<<< HEAD
-      const { promptData } = req.body;
-=======
       const { prompt, userEmail } = req.body;
->>>>>>> main
 
       // Generate a response with ChatGPT
       const completion = await openai.createCompletion({
