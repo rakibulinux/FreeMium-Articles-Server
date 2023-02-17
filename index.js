@@ -7,12 +7,18 @@ const cors = require("cors");
 const app = express();
 const jwt = require("jsonwebtoken");
 app.use(cors());
+<<<<<<< HEAD
 
 const httpServer = http.createServer(app); 
+=======
+const cheerio = require("cheerio");
+const sanitizeHtml = require("sanitize-html");
+const httpServer = http.createServer(app);
+>>>>>>> main
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "https://freemiumarticles.web.app"],
     // or with an array of origins
     methods: ["GET", "POST"],
   },
@@ -26,6 +32,7 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration);
 // cookie parser
 const cookieParser = require("cookie-parser");
+const { log } = require("console");
 const port = process.env.PORT;
 
 // middlewares
@@ -110,6 +117,10 @@ async function run() {
     const saveArticleCollection = client
       .db("freeMiumArticle")
       .collection("saveArticle");
+    // API collection
+    const apiAnsCollection = client
+      .db("freeMiumArticle")
+      .collection("apiAnsCollection");
 
     // Verfy Admin function
     const verifyAdmin = async (req, res, next) => {
@@ -320,7 +331,7 @@ async function run() {
     app.put("/updateCategory/:id", async (req, res) => {
       const id = req.params.id;
       const categoryName = req.body.categoryName;
-      console.log(categoryName);
+      // console.log(categoryName);
       const filter = { _id: ObjectId(id) };
       const options = { upsert: true };
       const updatedDoc = {
@@ -370,7 +381,7 @@ async function run() {
       const email = req.params.userId;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      res.send(user);
+      res.json(user);
     });
 
     /*=================
@@ -501,9 +512,11 @@ async function run() {
         { transactionId },
         { $set: { paid: true, paidTime: new Date() } }
       );
-
+      const paidUser = await paymentCollection.findOne({ transactionId });
+      // console.log(paidUser.email)
+      const PaidUserEmail = paidUser.email;
       const userPaid = await usersCollection.updateOne(
-        { transactionId },
+        { email: PaidUserEmail },
         { $set: { isPaid: true, paidTime: new Date() } }
       );
 
@@ -609,6 +622,40 @@ async function run() {
       res.send(result); 
     });
 
+    // reply comment data to db
+    app.post("/replyComment/:id", async (req, res) => {
+      const id = req.params.id;
+      const replyData = req.body;
+      console.log(replyData);
+      commentCollection.updateOne(
+        { _id: ObjectId(id) },
+        { $addToSet: { replyComment: replyData } },
+        (error, result) => {
+          if (error) {
+            res.status(500).send({ error: "Error reply user" });
+          } else {
+            res.status(200).send({ message: "Successfully reply to user" });
+          }
+        }
+      );
+    });
+
+    // app.post("/users/decUpVote", (req, res) => {
+    //   const storyId = req.body.storyId;
+    //   const decUpVoteId = req.body.decUpVoteId;
+    //   articleCollection.updateOne(
+    //     { _id: ObjectId(storyId) },
+    //     { $pull: { upVote: decUpVoteId } },
+    //     (error, result) => {
+    //       if (error) {
+    //         res.status(500).send({ error: "Error updating user" });
+    //       } else {
+    //         res.status(200).send({ message: "Successfully decUpVoteing user" });
+    //       }
+    //     }
+    //   );
+    // });
+
     // User comment  on article get from the database
 
     app.get("/comments", async (req, res) => {
@@ -621,6 +668,16 @@ async function run() {
       const cursor = commentCollection.find(query).sort({ _id: -1 });
       const comments = await cursor.toArray();
       res.send(comments);
+    });
+
+    // delete comment
+    app.delete("/comment/deleteComment/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log(id);
+      const filter = { _id: ObjectId(id) };
+      const result = await commentCollection.deleteOne(filter);
+
+      res.send(result);
     });
 
     /*=================
@@ -750,7 +807,7 @@ async function run() {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const post = await articleCollection.findOne(filter);
-      console.log(post);
+      // console.log(post);
       post.upVotes += 1;
       // await post.save();
       res.json(post);
@@ -760,7 +817,7 @@ async function run() {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const post = await articleCollection.findOne(filter);
-      console.log(post);
+      // console.log(post);
       post.downVotes -= 1;
       // await post.save();
       res.json(post);
@@ -931,7 +988,11 @@ async function run() {
 
     app.post("/hexa-ai", async (req, res) => {
       // Get the prompt from the request
+<<<<<<< HEAD
       const { promptData } = req.body;
+=======
+      const { prompt, userEmail } = req.body;
+>>>>>>> main
 
       // Generate a response with ChatGPT
       const completion = await openai.createCompletion({
@@ -944,6 +1005,13 @@ async function run() {
         frequency_penalty: 0.5, // Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
         presence_penalty: 0,
       });
+
+      await apiAnsCollection.insertOne({
+        email: userEmail,
+        question: prompt,
+        answer: completion.data.choices[0].text,
+      });
+      // console.log(userEmail);
       res.send(completion.data.choices[0].text);
 
       // try {
@@ -968,35 +1036,170 @@ async function run() {
       // }
     });
 
-    app.post("/message", (req, res) => {
-      const { sender, recipient, message } = req.body;
-      // insert the message into the database
-      messagesCollection.insertOne(
-        {
-          sender,
-          recipient,
-          message,
-          timestamp: new Date(),
-        },
-        (err, result) => {
-          if (err) {
-            return res.status(500).send({ error: err });
-          }
-          return res.send({ message: "Message sent successfully" });
-        }
-      );
+    app.get("/apiAns", async (req, res) => {
+      const email = req.query.email;
+
+      const allApiAns = await apiAnsCollection.find({ email }).toArray();
+      res.send(allApiAns);
     });
 
-    app.get("/messages", (req, res) => {
-      messagesCollection.find({}).toArray((err, messages) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).send(err);
-        }
-        res.send(messages);
-        client.close();
-      });
+    app.get("/hexa-ai/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const historyId = { _id: ObjectId(id) };
+      const historyAns = await apiAnsCollection.findOne(historyId);
+      res.send(historyAns);
     });
+    // Create endpoint for getting all conversations
+    app.get("/conversations", async (req, res) => {
+      // Find all conversations
+      const allConversations = await messagesCollection.find({}).toArray();
+
+      // Return the conversations
+      res.json(allConversations);
+    });
+
+    // Create endpoint for getting all messages in a conversation
+    app.get("/conversations/:id", async (req, res) => {
+      // Connect to the MongoDB database
+      // Find the conversation by its ID
+      const conversation = await messagesCollection.findOne({
+        _id: ObjectId(req.params.id),
+      });
+
+      // Return the messages in the conversation
+      res.json(conversation.messages);
+    });
+
+    // Create endpoint for creating a new conversation
+    app.post("/conversations", async (req, res) => {
+      // Insert a new conversation
+      const newConversation = {
+        participants: [req.body.senderId, req.body.receiverId],
+        messages: [],
+        timestamp: new Date(),
+      };
+      const result = await messagesCollection.insertOne(newConversation);
+
+      // Return the ID of the new conversation
+      res.json({ id: result.insertedId });
+    });
+
+    // Create endpoint for adding a new message to a conversation
+    app.post("/conversations/:id/messages", async (req, res) => {
+      try {
+        const conversationId = req.params.id;
+        const newMessage = req.body;
+
+        // Find the conversation with the specified id
+        const conversation = await messagesCollection.findOne({
+          _id: ObjectId(conversationId),
+        });
+
+        // Push the new message to the conversation's messages array
+        conversation.messages.push(newMessage);
+
+        // Save the updated conversation back to the database
+        await conversationsCollection.updateOne(
+          { _id: ObjectId(conversationId) },
+          { $set: { messages: conversation.messages } }
+        );
+
+        // Return a success response
+        res.status(200).json({ message: "Message added successfully" });
+      } catch (error) {
+        console.error(error);
+        res
+          .status(500)
+          .json({ error: "An error occurred while adding the message" });
+      }
+    });
+
+    // Endpoint to import story
+    app.post("/import-story", async (req, res) => {
+      try {
+        const { url, extra } = req.body;
+        console.log(url, extra);
+        const {
+          userId,
+          userEmail,
+          writerName,
+          writerImg,
+          articleSubmitDate,
+          articleRead,
+          category,
+        } = extra;
+        const response = await axios.get(url);
+        const $ = cheerio.load(response.data);
+        const articleTitle = sanitizeHtml($("h1").text());
+        const articleImg = sanitizeHtml(
+          $("meta[property='og:image']").attr("content")
+        );
+        const articleDetails = $("section").text();
+        // const cleanContent = articleDetails.replace(
+        //   /document\.domain\s*=\s*document\.domain;\s*Open in appSign upSign InWriteSign upSign InPublished inJavaScript in Plain EnglishCan DurmusFollowJul \d{1,2}, \d{4}·\d+ min read·Member-onlySave/g,
+        //   ""
+        // );
+
+        // const articleTitle = sanitizeHtml($("h1").text());
+        // const articleImg = sanitizeHtml(
+        //   $("meta[property='og:image']").attr("content")
+        // );
+        // const articleDetails = sanitizeHtml($("body").text());
+        await articleCollection.insertOne({
+          articleDetails,
+          userId,
+          userEmail,
+          writerName,
+          writerImg,
+          articleTitle,
+          articleSubmitDate,
+          articleRead,
+          articleImg,
+          category,
+        });
+        res.status(200).send({ message: "Story imported successfully" });
+      } catch (error) {
+        res.status(500).send({ message: "Failed to import story" });
+      }
+    });
+
+    // Get all reviews for a specific user
+    app.get("/my-stories", async (req, res) => {
+      const email = req.query.email;
+      let query = { userEmail: email };
+      const articles = await articleCollection.find(query).toArray();
+      res.send(articles);
+    });
+    // app.post("/message", (req, res) => {
+    //   const { sender, recipient, message } = req.body;
+    //   // insert the message into the database
+    //   messagesCollection.insertOne(
+    //     {
+    //       sender,
+    //       recipient,
+    //       message,
+    //       timestamp: new Date(),
+    //     },
+    //     (err, result) => {
+    //       if (err) {
+    //         return res.status(500).send({ error: err });
+    //       }
+    //       return res.send({ message: "Message sent successfully" });
+    //     }
+    //   );
+    // });
+
+    // app.get("/messages", (req, res) => {
+    //   messagesCollection.find({}).toArray((err, messages) => {
+    //     if (err) {
+    //       console.error(err);
+    //       return res.status(500).send(err);
+    //     }
+    //     res.send(messages);
+    //     client.close();
+    //   });
+    // });
 
     // app.post("/sendMessage", (req, res) => {
     //   const { sender, recipient, message } = req.body;
