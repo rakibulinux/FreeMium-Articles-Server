@@ -1,13 +1,14 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 require("dotenv").config();
+const SSLCommerzPayment = require("sslcommerz-lts");
 const http = require("http");
 const cors = require("cors");
 const app = express();
 const jwt = require("jsonwebtoken");
 app.use(cors());
 
-const httpServer = http.createServer(app);
+const httpServer = http.createServer(app); 
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
@@ -16,14 +17,14 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
   },
 });
-
 const axios = require("axios");
+// step one
 const { Configuration, OpenAIApi } = require("openai");
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
-const SSLCommerzPayment = require("sslcommerz-lts");
+// cookie parser
 const cookieParser = require("cookie-parser");
 const port = process.env.PORT;
 
@@ -440,7 +441,7 @@ async function run() {
         res.status(500).json({ message: err.message });
       }
     });
-
+// Payment gateway sslcommerz setup
     app.post("/payment", async (req, res) => {
       const paymentUser = req.body;
       const transactionId = new ObjectId().toString();
@@ -605,7 +606,7 @@ async function run() {
     app.post("/comments", async (req, res) => {
       const comments = req.body;
       const result = await commentCollection.insertOne(comments);
-      res.send(result);
+      res.send(result); 
     });
 
     // User comment  on article get from the database
@@ -930,12 +931,12 @@ async function run() {
 
     app.post("/hexa-ai", async (req, res) => {
       // Get the prompt from the request
-      const { prompt } = req.body;
+      const { promptData } = req.body;
 
       // Generate a response with ChatGPT
       const completion = await openai.createCompletion({
         model: "text-davinci-003",
-        prompt: prompt,
+        prompt: promptData,
         temperature: 0,
         max_tokens: 3000,
         frequency_penalty: 0.5,
@@ -955,7 +956,7 @@ async function run() {
       //     max_tokens: 3000, // The maximum number of tokens to generate in the completion. Most models have a context length of 2048 tokens (except for the newest models, which support 4096).
       //     top_p: 1, // alternative to sampling with temperature, called nucleus sampling
       //     frequency_penalty: 0.5, // Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
-      //     presence_penalty: 0, // Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.
+      //     presence_penalty: 0, // Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics. 
       //   });
 
       //   res.status(200).send({
