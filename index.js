@@ -74,9 +74,18 @@ function verifyJWT(req, res, next) {
       return res.status(403).send({ message: "Forbidden" });
     }
     req.decoded = decoded;
+   
     next();
   });
 }
+
+//=============Verify authmiddleware function
+
+const authMiddleware = async (req, res, next) => {
+  // const {freeMiumToken} = req.cookie;
+  
+  next();
+};
 // check main route
 app.get("/", (req, res) => {
   res.send(`FreeMium Articles running on port ${port}`);
@@ -216,6 +225,9 @@ async function run() {
       const result = await articleCollection.find(query).toArray();
       res.send([{ categoryName: categoryName }, result]);
     });
+
+
+   
     // Update users
     app.put("/users/:email", async (req, res) => {
       const email = req.params.email;
@@ -324,7 +336,7 @@ async function run() {
     app.put("/updateCategory/:id", async (req, res) => {
       const id = req.params.id;
       const categoryName = req.body.categoryName;
-      // console.log(categoryName);
+     
       const filter = { _id: ObjectId(id) };
       const options = { upsert: true };
       const updatedDoc = {
@@ -544,7 +556,7 @@ async function run() {
         .find({ userId: req.params.userId })
         .toArray((err, notifications) => {
           if (err) {
-            console.log(err);
+           
             res.status(500).send(err);
           } else {
             res.status(200).send(notifications);
@@ -1038,6 +1050,209 @@ async function run() {
       const historyId = { _id: ObjectId(id) };
       const historyAns = await apiAnsCollection.findOne(historyId);
       res.send(historyAns);
+
+  })
+
+    /*=================
+    messaging api
+    =================== */
+     // get friend data
+     app.get("/friends", async (req, res) => {
+      const id = req.query.myId; 
+           
+      const result = await usersCollection.find({}).toArray()
+      const filter =result.filter(d=>d._id !==id)
+
+      // find({database_id: {$ne: id }})
+      res.send(filter);
+    });
+// send message
+app.post("/sendMessage", async (req, res) => {
+  const message = req.body.data;
+  const result = await messagesCollection.insertOne(message );
+  res.send(result);
+});
+
+ // get message
+ app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
+  const frndId = req.params.id;
+  const myId = req.params.myId  
+ console.log(frndId)
+ console.log(myId)
+  const result = await messagesCollection.find({}).toArray();
+  const filter = result.filter(m=>m.senderId===myId && m.reciverId===frndId || m.reciverId===myId && m.senderId===frndId)
+  res.send(filter);
+
+});
+    // inbox 
+    app.get('/conversetion',async(req,res)=>{
+      const conversations = await Conversation.find({
+        $or: [
+          { "creator.id": req.user.userid },
+          { "participant.id": req.user.userid },
+        ],
+      });
+      
+      res.send(conversations);
+    })
+    // serchc user
+    app.get('/searchUser',async(req,res)=>{
+      const user = req.body.user;
+      const searchQuery = user.replace("+88", "");
+      const name_search_regex = new RegExp(escape(searchQuery), "i");
+      if (searchQuery !== "") {
+        const users = await usersCollection.find(
+          {
+            $or: [
+              {
+                name: name_search_regex,
+              },
+              ],
+          },
+          "name avatar"
+        );
+  
+        res.json(users);
+      } else {
+        throw createError("You must provide some text to search!");
+      }
+     
+    })
+// add conversation
+app.get('/searchUser',async(req,res)=> {
+  try {
+    const newConversation = new Conversation({
+      creator: {
+        id: req.user.userid,
+        name: req.user.username,
+        avatar: req.user.avatar || null,
+      },
+      participant: {
+        name: req.body.participant,
+        id: req.body.id,
+        avatar: req.body.avatar || null,
+      },
+    });
+
+    const result = await newConversation.save();
+    res.status(200).json({
+      message: "Conversation was added successfully!",
+    });
+  } catch (err) {
+    res.status(500).json({
+      errors: {
+        common: {
+          msg: err.message,
+        },
+      },
+    });
+  }
+});
+
+// send new message
+async function sendMessage(req, res, next) {
+  if (req.body.message || (req.files && req.files.length > 0)) {
+    try {
+      // save message text/attachment in database
+      let attachments = null;
+
+      if (req.files && req.files.length > 0) {
+        attachments = [];
+
+        req.files.forEach((file) => {
+          attachments.push(file.filename);
+        });
+      }
+
+      const newMessage = new Message({
+        text: req.body.message,
+        attachment: attachments,
+        sender: {
+          id: req.user.userid,
+          name: req.user.username,
+          avatar: req.user.avatar || null,
+        },
+        receiver: {
+          id: req.body.receiverId,
+          name: req.body.receiverName,
+          avatar: req.body.avatar || null,
+        },
+        conversation_id: req.body.conversationId,
+      });
+
+      const result = await newMessage.save();
+
+      // emit socket event
+      global.io.emit("new_message", {
+        message: {
+          conversation_id: req.body.conversationId,
+          sender: {
+            id: req.user.userid,
+            name: req.user.username,
+            avatar: req.user.avatar || null,
+          },
+          message: req.body.message,
+          attachment: attachments,
+          date_time: result.date_time,
+        },
+      });
+
+      res.status(200).json({
+        message: "Successful!",
+        data: result,
+      });
+    } catch (err) {
+      res.status(500).json({
+        errors: {
+          common: {
+            msg: err.message,
+          },
+        },
+      });
+    }
+  } else {
+    res.status(500).json({
+      errors: {
+        common: "message text or attachment is required!",
+      },
+    });
+  }
+}
+
+
+
+
+
+
+    app.post("/message", (req, res) => {
+      const { sender, recipient, message } = req.body;
+      // insert the message into the database
+      messagesCollection.insertOne(
+        {
+          sender,
+          recipient,
+          message,
+          timestamp: new Date(),
+        },
+        (err, result) => {
+          if (err) {
+            return res.status(500).send({ error: err });
+          }
+          return res.send({ message: "Message sent successfully" });
+        }
+      );
+    });
+
+    app.get("/messages", (req, res) => {
+      
+      messagesCollection.find({}).toArray((err, messages) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).send(err);
+        }
+        res.send(messages);
+        client.close();
+      });
     });
     // Create endpoint for getting all conversations
     app.get("/conversations", async (req, res) => {
@@ -1221,6 +1436,7 @@ async function run() {
     //     return res.status(500).json({ error: error.message });
     //   }
     // });
+
     // app.get("/messages", (req, res) => {
     //   // retrieve all messages for the current user
     //   messagesCollection
@@ -1235,6 +1451,7 @@ async function run() {
     //     });
     // });
   } finally {
+    
   }
 }
 //
