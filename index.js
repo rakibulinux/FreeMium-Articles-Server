@@ -7,14 +7,9 @@ const cors = require("cors");
 const app = express();
 const jwt = require("jsonwebtoken");
 app.use(cors());
-<<<<<<< HEAD
-
-const httpServer = http.createServer(app); 
-=======
 const cheerio = require("cheerio");
 const sanitizeHtml = require("sanitize-html");
 const httpServer = http.createServer(app);
->>>>>>> main
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
