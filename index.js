@@ -1077,13 +1077,21 @@ app.post("/sendMessage", async (req, res) => {
  app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
   const frndId = req.params.id;
   const myId = req.params.myId  
- console.log(frndId)
- console.log(myId)
+//  console.log(frndId)
+//  console.log(myId)
   const result = await messagesCollection.find({}).toArray();
   const filter = result.filter(m=>m.senderId===myId && m.reciverId===frndId || m.reciverId===myId && m.senderId===frndId)
   res.send(filter);
 
 });
+
+// send image
+app.post("/send-image", async (req, res) => {
+  const imgMessage = req.body.data;
+  const result = await messagesCollection.insertOne(imgMessage );
+  res.send(result);
+});
+
     // inbox 
     app.get('/conversetion',async(req,res)=>{
       const conversations = await Conversation.find({
