@@ -12,10 +12,12 @@ const httpServer = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
-    origin: ["http://localhost:3000", "https://freemiumarticles.web.app"],
-    // or with an array of origins
+    origin: "*",
     methods: ["GET", "POST"],
+    transports: ["websocket", "polling"],
+    credentials: true,
   },
+  allowEIO4: true,
 });
 
 const axios = require("axios");
