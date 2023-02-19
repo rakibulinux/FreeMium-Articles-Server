@@ -299,6 +299,25 @@ async function run() {
       );
       res.send(result);
     });
+    // Edit Article = articleType
+    app.put("/editArticleType/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const data = req.body;
+      const option = { upsert: true };
+      const updateData = {
+        $set: {
+          articleType: data.articleType,
+        },
+      };
+
+      const result = await articleCollection.updateOne(
+        filter,
+        updateData,
+        option
+      );
+      res.send(result);
+    });
     /*========================
         category api
       ======================== */
@@ -1047,7 +1066,6 @@ async function run() {
 
     app.get("/hexa-ai/:id", async (req, res) => {
       const id = req.params.id;
-
       const historyId = { _id: ObjectId(id) };
       const historyAns = await apiAnsCollection.findOne(historyId);
       res.send(historyAns);
