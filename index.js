@@ -37,6 +37,33 @@ app.use(cookieParser());
 
 const messages = [];
 
+const users = {};
+
+io.on("connection", (socket) => {
+  console.log("A user connected!");
+
+  // add the user to our list of users
+  users[socket.id] = true;
+
+  // notify the other users that a new user has joined
+  socket.broadcast.emit("user joined", socket.id);
+
+  // forward signal to the appropriate user
+  socket.on("signal", (data) => {
+    socket.broadcast.emit("signal", data);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("A user disconnected!");
+
+    // remove the user from our list of users
+    delete users[socket.id];
+
+    // notify the other users that a user has left
+    socket.broadcast.emit("user left", socket.id);
+  });
+});
+
 // Connection
 io.on("connection", (socket) => {
   // console.log("Client connected");
