@@ -1018,7 +1018,7 @@ async function run() {
       // Generate a response with ChatGPT
       const completion = await openai.createCompletion({
         model: "text-davinci-003",
-        prompt: promptData,
+        prompt: prompt,
         temperature: 0,
         max_tokens: 3000,
         frequency_penalty: 0.5,
