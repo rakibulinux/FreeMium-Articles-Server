@@ -684,6 +684,30 @@ async function run() {
       );
     });
 
+    // update COmment
+
+    // app.put("/comment/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   // const query={_id:ObjectId(id)}
+
+    //   const updatedComment = req.body.updatedComment;
+    //   console.log(updatedComment);
+    //   const filter = { _id: ObjectId(id) };
+    //   const options = { upsert: true };
+    //   const updatedDoc = {
+    //     $set: {
+    //       comment: updatedComment,
+    //     },
+    //   };
+    //   console.log(updatedReviw)
+    //   const result = await commentCollection.updateOne(
+    //     filter,
+    //     updatedDoc,
+    //     options
+    //   );
+    //   res.send(result);
+    // });
+
     // app.post("/users/decUpVote", (req, res) => {
     //   const storyId = req.body.storyId;
     //   const decUpVoteId = req.body.decUpVoteId;
