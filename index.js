@@ -14,12 +14,9 @@ const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"],
-    transports: ["websocket", "polling"],
-    credentials: true,
   },
-  allowEIO4: true,
 });
+
 const axios = require("axios");
 // step one
 const { Configuration, OpenAIApi } = require("openai");
@@ -35,6 +32,12 @@ const port = process.env.PORT;
 // middlewares
 app.use(express.json());
 app.use(cookieParser());
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  next();
+});
 
 const messages = [];
 
@@ -478,7 +481,7 @@ async function run() {
         res.status(500).json({ message: err.message });
       }
     });
-// Payment gateway sslcommerz setup
+    // Payment gateway sslcommerz setup
     app.post("/payment", async (req, res) => {
       const paymentUser = req.body;
       const transactionId = new ObjectId().toString();
@@ -644,7 +647,7 @@ async function run() {
     app.post("/comments", async (req, res) => {
       const comments = req.body;
       const result = await commentCollection.insertOne(comments);
-      res.send(result); 
+      res.send(result);
     });
 
     // reply comment data to db
@@ -1018,7 +1021,7 @@ async function run() {
       // Generate a response with ChatGPT
       const completion = await openai.createCompletion({
         model: "text-davinci-003",
-        prompt: promptData,
+        prompt: prompt,
         temperature: 0,
         max_tokens: 3000,
         frequency_penalty: 0.5,
@@ -1045,7 +1048,7 @@ async function run() {
       //     max_tokens: 3000, // The maximum number of tokens to generate in the completion. Most models have a context length of 2048 tokens (except for the newest models, which support 4096).
       //     top_p: 1, // alternative to sampling with temperature, called nucleus sampling
       //     frequency_penalty: 0.5, // Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
-      //     presence_penalty: 0, // Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics. 
+      //     presence_penalty: 0, // Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.
       //   });
 
       //   res.status(200).send({
