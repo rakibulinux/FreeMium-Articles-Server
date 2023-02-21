@@ -1,6 +1,7 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 require("dotenv").config();
+const SSLCommerzPayment = require("sslcommerz-lts");
 const http = require("http");
 const cors = require("cors");
 const app = express();
@@ -13,20 +14,17 @@ const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"],
-    transports: ["websocket", "polling"],
-    credentials: true,
   },
-  allowEIO4: true,
 });
 
 const axios = require("axios");
+// step one
 const { Configuration, OpenAIApi } = require("openai");
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
-const SSLCommerzPayment = require("sslcommerz-lts");
+// cookie parser
 const cookieParser = require("cookie-parser");
 const { log } = require("console");
 const port = process.env.PORT;
@@ -34,6 +32,12 @@ const port = process.env.PORT;
 // middlewares
 app.use(express.json());
 app.use(cookieParser());
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  next();
+});
 
 const messages = [];
 
@@ -83,6 +87,7 @@ const store_passwd = process.env.STORE_PASSWORD;
 const is_live = false; //true for live, false for sandbox
 
 // Mongo DB Connections
+// get update code
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
@@ -324,6 +329,25 @@ async function run() {
       );
       res.send(result);
     });
+    // Edit Article = articleType
+    app.put("/editArticleType/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const data = req.body;
+      const option = { upsert: true };
+      const updateData = {
+        $set: {
+          articleType: data.articleType,
+        },
+      };
+
+      const result = await articleCollection.updateOne(
+        filter,
+        updateData,
+        option
+      );
+      res.send(result);
+    });
     /*========================
         category api
       ======================== */
@@ -484,7 +508,7 @@ async function run() {
         res.status(500).json({ message: err.message });
       }
     });
-
+    // Payment gateway sslcommerz setup
     app.post("/payment", async (req, res) => {
       const paymentUser = req.body;
       const transactionId = new ObjectId().toString();
@@ -1072,7 +1096,6 @@ async function run() {
 
     app.get("/hexa-ai/:id", async (req, res) => {
       const id = req.params.id;
-
       const historyId = { _id: ObjectId(id) };
       const historyAns = await apiAnsCollection.findOne(historyId);
       res.send(historyAns);
