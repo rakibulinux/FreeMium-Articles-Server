@@ -12,8 +12,8 @@ const httpServer = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
-    origin: ["http://localhost:3000", "https://freemiumarticles.web.app"],
-    // or with an array of origins
+    origin: "http://localhost:3000",
+    // or with an array of origins ["http://localhost:3000", "https://freemiumarticles.web.app"]
     methods: ["GET", "POST"],
   },
 });
@@ -33,21 +33,35 @@ const port = process.env.PORT;
 app.use(express.json());
 app.use(cookieParser());
 
-const messages = [];
+let users = [];
+// add log in  user 
+const addUsers=(userId,socketId,userInfo)=>{
+  const checkUser = users.some(u=>u._id === userId)
+  if(!checkUser){
+    users.push({userId,socketId,userInfo})
+  }
+}
 
+// remove log out user
+const userRemove =(socketId)=>{
+  users = users?.filter(u=>u?.socketId !== socketId)
+}
 // Connection
 io.on("connection", (socket) => {
-  // console.log("Client connected");
-
-  socket.on("sendMessage", (message) => {
-    // console.log(`Received message: ${message}`);
-    io.emit("showMessage", message);
+  // console.log("Client connected");  
+  socket.on("addUser", (singleUsersId,singleUsers) => {
+    addUsers(singleUsersId,socket.id,singleUsers)
+     
+    io.emit("getUsers", users);
   });
-
   socket.on("disconnect", () => {
+    userRemove(socket.id)
+    io.emit("getUsers", users);
     // console.log("Client disconnected");
   });
 });
+
+
 // sslcommerz
 const store_id = process.env.STORE_ID;
 const store_passwd = process.env.STORE_PASSWORD;
