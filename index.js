@@ -13,7 +13,9 @@ const httpServer = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: "http://localhost:3000",
+    // or with an array of origins ["http://localhost:3000", "https://freemiumarticles.web.app"]
+    methods: ["GET", "POST"],
   },
 });
 
@@ -39,9 +41,16 @@ app.use((req, res, next) => {
   next();
 });
 
-const messages = [];
+let users = [];
+// add log in  user
+const addUsers = (userId, socketId, userInfo) => {
+  const checkUser = users.some((u) => u._id === userId);
+  if (!checkUser) {
+    users.push({ userId, socketId, userInfo });
+  }
+};
 
-const users = {};
+// const users = {};
 
 io.on("connection", (socket) => {
   console.log("A user connected!");
@@ -68,19 +77,25 @@ io.on("connection", (socket) => {
   });
 });
 
+// remove log out user
+const userRemove = (socketId) => {
+  users = users?.filter((u) => u?.socketId !== socketId);
+};
 // Connection
 io.on("connection", (socket) => {
   // console.log("Client connected");
+  socket.on("addUser", (singleUsersId, singleUsers) => {
+    addUsers(singleUsersId, socket.id, singleUsers);
 
-  socket.on("sendMessage", (message) => {
-    // console.log(`Received message: ${message}`);
-    io.emit("showMessage", message);
+    io.emit("getUsers", users);
   });
-
   socket.on("disconnect", () => {
+    userRemove(socket.id);
+    io.emit("getUsers", users);
     // console.log("Client disconnected");
   });
 });
+
 // sslcommerz
 const store_id = process.env.STORE_ID;
 const store_passwd = process.env.STORE_PASSWORD;
@@ -1125,8 +1140,8 @@ async function run() {
     app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
       const frndId = req.params.id;
       const myId = req.params.myId;
-      console.log(frndId);
-      console.log(myId);
+      //  console.log(frndId)
+      //  console.log(myId)
       const result = await messagesCollection.find({}).toArray();
       const filter = result.filter(
         (m) =>
@@ -1135,9 +1150,17 @@ async function run() {
       );
       res.send(filter);
     });
+
+    // send image
+    app.post("/send-image", async (req, res) => {
+      const imgMessage = req.body.data;
+      const result = await messagesCollection.insertOne(imgMessage);
+      res.send(result);
+    });
+
     // inbox
     app.get("/conversetion", async (req, res) => {
-      const conversations = await messagesCollection.find({
+      const conversations = await Conversation.find({
         $or: [
           { "creator.id": req.user.userid },
           { "participant.id": req.user.userid },
