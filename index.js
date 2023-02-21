@@ -858,25 +858,25 @@ async function run() {
       }
     });
 
-    app.post("/view-story/:id/upvote", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: ObjectId(id) };
-      const post = await articleCollection.findOne(filter);
-      // console.log(post);
-      post.upVotes += 1;
-      // await post.save();
-      res.json(post);
-    });
+    // app.post("/view-story/:id/upvote", async (req, res) => {
+    //   const id = req.params.id;
+    //   const filter = { _id: ObjectId(id) };
+    //   const post = await articleCollection.findOne(filter);
+    //   // console.log(post);
+    //   post.upVotes += 1;
+    //   // await post.save();
+    //   res.json(post);
+    // });
 
-    app.post("/view-story/:id/downvote", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: ObjectId(id) };
-      const post = await articleCollection.findOne(filter);
-      // console.log(post);
-      post.downVotes -= 1;
-      // await post.save();
-      res.json(post);
-    });
+    // app.post("/view-story/:id/downvote", async (req, res) => {
+    //   const id = req.params.id;
+    //   const filter = { _id: ObjectId(id) };
+    //   const post = await articleCollection.findOne(filter);
+    //   // console.log(post);
+    //   post.downVotes -= 1;
+    //   // await post.save();
+    //   res.json(post);
+    // });
 
     /*============================
       upVote  api
@@ -1137,7 +1137,7 @@ async function run() {
     });
     // inbox
     app.get("/conversetion", async (req, res) => {
-      const conversations = await Conversation.find({
+      const conversations = await messagesCollection.find({
         $or: [
           { "creator.id": req.user.userid },
           { "participant.id": req.user.userid },
@@ -1171,7 +1171,7 @@ async function run() {
     // add conversation
     app.get("/searchUser", async (req, res) => {
       try {
-        const newConversation = new Conversation({
+        const newConversation = new messagesCollection({
           creator: {
             id: req.user.userid,
             name: req.user.username,
@@ -1426,81 +1426,101 @@ async function run() {
       const result = await saveArticleCollection.deleteOne(filter);
       res.send(result);
     });
-    // app.post("/message", (req, res) => {
-    //   const { sender, recipient, message } = req.body;
-    //   // insert the message into the database
-    //   messagesCollection.insertOne(
-    //     {
-    //       sender,
-    //       recipient,
-    //       message,
-    //       timestamp: new Date(),
-    //     },
-    //     (err, result) => {
-    //       if (err) {
-    //         return res.status(500).send({ error: err });
-    //       }
-    //       return res.send({ message: "Message sent successfully" });
-    //     }
-    //   );
-    // });
 
-    // app.get("/messages", (req, res) => {
-    //   messagesCollection.find({}).toArray((err, messages) => {
-    //     if (err) {
-    //       console.error(err);
-    //       return res.status(500).send(err);
-    //     }
-    //     res.send(messages);
-    //     client.close();
-    //   });
-    // });
+    app.post("/view-story/:id/upvote", async (req, res) => {
+      const { id } = req.params;
+      const { userId } = req.body;
 
-    // app.post("/sendMessage", (req, res) => {
-    //   const { sender, recipient, message } = req.body;
-    //   // insert the message into the database
-    //   messagesCollection.insertOne(
-    //     {
-    //       sender,
-    //       recipient,
-    //       message,
-    //       timestamp: new Date(),
-    //     },
-    //     (err, result) => {
-    //       if (err) {
-    //         return res.status(500).send({ error: err });
-    //       }
-    //       return res.send({ message: "Message sent successfully" });
-    //     }
-    //   );
-    // });
-    // // Express route for retrieving messages for a user
-    // app.get("/getMessages/:recipient", async (req, res) => {
-    //   try {
-    //     const recipient = req.params.recipient;
+      try {
+        const article = await articleCollection.findOneAndUpdate(
+          { _id: ObjectId(id), upVote: { $ne: userId } },
+          { $push: { upVote: userId }, $inc: { upvotes: 1 } },
+          { returnOriginal: false }
+        );
 
-    //     // Retrieve the messages from the database
-    //     const messages = messagesCollection.find({ recipient });
+        if (!article.value) {
+          return res.status(404).json({ error: "Article not found" });
+        }
 
-    //     return res.status(200).json({ messages });
-    //   } catch (error) {
-    //     return res.status(500).json({ error: error.message });
-    //   }
-    // });
+        res.json({ article: article.value });
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Server error" });
+      }
 
-    // app.get("/messages", (req, res) => {
-    //   // retrieve all messages for the current user
-    //   messagesCollection
-    //     .find({
-    //       $or: [{ sender: req.query.userId }, { recipient: req.query.userId }],
-    //     })
-    //     .toArray((err, messages) => {
-    //       if (err) {
-    //         return res.status(500).send({ error: err });
-    //       }
-    //       return res.send({ messages });
-    //     });
-    // });
+      // try {
+      //   const { id } = req.params;
+      //   const storyId = { _id: ObjectId(id) };
+      //   const article = await articleCollection.findOne(storyId);
+      //   if (!article) {
+      //     return res
+      //       .status(404)
+      //       .json({ success: false, message: "Article not found" });
+      //   }
+
+      //   if (article.upVote.includes(req.body.userId)) {
+      //     return res
+      //       .status(400)
+      //       .json({ success: false, message: "User already upvoted" });
+      //   }
+
+      //   article.upVote.push(req.body.userId);
+      //   article.upvotes = article.upVote.length;
+      //   await article.save();
+
+      //   res.json({ success: true, article });
+      // } catch (err) {
+      //   console.log(err);
+      //   res.status(500).json({ success: false, message: "Server error" });
+      // }
+    });
+
+    app.post("/view-story/:id/downvote", async (req, res) => {
+      const { id } = req.params;
+      const { userId } = req.body;
+
+      try {
+        const article = await articleCollection.findOneAndUpdate(
+          { _id: ObjectId(id), downVote: { $ne: userId } },
+          { $push: { downVote: userId }, $inc: { downvotes: 1 } },
+          { returnOriginal: false }
+        );
+
+        if (!article.value) {
+          return res.status(404).json({ error: "Article not found" });
+        }
+
+        res.json({ article: article.value });
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Server error" });
+      }
+      // try {
+      //   const { id } = req.params;
+      //   const storyId = { _id: ObjectId(id) };
+      //   const article = await articleCollection.findOne(storyId);
+      //   if (!article) {
+      //     return res
+      //       .status(404)
+      //       .json({ success: false, message: "Article not found" });
+      //   }
+
+      //   if (article.downVote.includes(req.body.userId)) {
+      //     return res
+      //       .status(400)
+      //       .json({ success: false, message: "User already downvoted" });
+      //   }
+
+      //   article.downVote.push(req.body.userId);
+      //   article.downvotes = article.downVote.length;
+      //   await article.save();
+
+      //   res.json({ success: true, article });
+      // } catch (err) {
+      //   console.log(err);
+      //   res.status(500).json({ success: false, message: "Server error" });
+      // }
+    });
   } finally {
   }
 }
