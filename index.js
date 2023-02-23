@@ -13,7 +13,7 @@ const httpServer = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "*",
     // or with an array of origins ["http://localhost:3000", "https://freemiumarticles.web.app"]
     methods: ["GET", "POST"],
   },
@@ -319,7 +319,10 @@ async function run() {
 
     app.get("/allArticles", async (req, res) => {
       const query = {};
-      const article = await articleCollection.find(query).toArray();
+      const article = await articleCollection
+        .find(query)
+        .sort({ articleSubmitDate: -1 })
+        .toArray();
       res.send(article);
     });
 
@@ -607,26 +610,88 @@ async function run() {
       console.log("Client connected");
     });
 
-    // Handle new notification
+    // Create a new notification
+    const createNotification = (userId, message, type) => {
+      const newNotification = {
+        userId: userId,
+        message: message,
+        type: type,
+        timestamp: new Date(),
+        read: false,
+      };
+
+      notificationCollection.insertOne(newNotification, (err, result) => {
+        if (err) {
+          console.error("Error creating notification:", err);
+        } else {
+          // Emit the new notification to the user's socket
+          io.to(userId).emit("new_notification", result);
+        }
+      });
+    };
+
+    // Get all notifications
+    // app.get("/notifications", (req, res) => {
+    //   notificationCollection.find({}).toArray((err, docs) => {
+    //     if (err) {
+    //       res.status(500).send("Error retrieving notifications");
+    //     } else {
+    //       res.send(docs);
+    //     }
+    //   });
+    // });
+
+    // Get all notifications for the user
+    app.get("/notifications/:userId", (req, res) => {
+      const userId = req.params.userId;
+      notificationCollection
+        .find({ userId: userId })
+        .sort({ timestamp: -1 })
+        .toArray((err, docs) => {
+          if (err) {
+            res.status(500).send("Error retrieving notifications");
+          } else {
+            res.send(docs);
+          }
+        });
+    });
+
+    // Create a new notification
     app.post("/notifications", (req, res) => {
-      const notification = req.body;
-      notificationCollection.insertOne(notification, (err, result) => {
-        if (err) throw err;
-        io.emit("notification", notification);
-        res.status(201).send(`Notification inserted: ${result.ops[0]._id}`);
+      const newNotification = {
+        message: req.body.message,
+        timestamp: new Date(),
+        read: false,
+      };
+
+      notificationCollection.insertOne(newNotification, (err, result) => {
+        if (err) {
+          res.status(500).send("Error creating notification");
+        } else {
+          // Emit the new notification to all clients
+          io.emit("new_notification", result.ops[0]);
+          res.send(result.ops[0]);
+        }
       });
     });
 
-    app.get("/notifications/:userId", (req, res) => {
-      notificationCollection
-        .find({ userId: req.params.userId })
-        .toArray((err, notifications) => {
+    // Update a notification as read
+    app.put("/notifications/:id", (req, res) => {
+      const id = req.params.id;
+
+      notificationCollection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { read: true } },
+        (err, result) => {
           if (err) {
-            res.status(500).send(err);
+            res.status(500).send("Error updating notification");
           } else {
-            res.status(200).send(notifications);
+            // Emit the updated notification to all clients
+            io.emit("notification_updated", result.value);
+            res.send(result);
           }
-        });
+        }
+      );
     });
 
     /*===================
@@ -1156,7 +1221,10 @@ async function run() {
     // send message
     app.post("/sendMessage", async (req, res) => {
       const message = req.body.data;
+      console.log(message);
       const result = await messagesCollection.insertOne(message);
+      createNotification(message.reciverId, message.message.text, "message");
+      console.log(result);
       res.send(result);
     });
 
@@ -1474,74 +1542,226 @@ async function run() {
       res.send(result);
     });
 
+    // app.post("/view-story/:id/upvote", async (req, res) => {
+    //   try {
+    //     const postId = req.params.id;
+    //     const vote = req.params.vote;
+    //     const userId = req.body.userId;
+
+    //     // Check if user has already voted on this post
+    //     const db = client.db();
+    //     const user = await usersCollection.findOne({
+    //       _id: ObjectId(userId),
+    //       votes: { $elemMatch: { postId: ObjectId(postId) } },
+    //     });
+
+    //     // If user has not voted on this post yet
+    //     if (!user) {
+    //       // Update the post with the new vote
+    //       let update;
+    //       if (vote === "upvote") {
+    //         update = { $inc: { upvotes: 1 } };
+    //       } else if (vote === "downvote") {
+    //         update = { $inc: { downvotes: 1 } };
+    //       } else {
+    //         throw new Error("Invalid vote");
+    //       }
+    //       const post = await articleCollection.findOneAndUpdate(
+    //         { _id: ObjectId(postId) },
+    //         update,
+    //         { returnOriginal: false }
+    //       );
+
+    //       // Add the vote to the user's list of votes
+    //       await usersCollection.updateOne(
+    //         { _id: ObjectId(userId) },
+    //         { $push: { votes: { postId: ObjectId(postId), vote } } }
+    //       );
+
+    //       res.json(post);
+    //     } else {
+    //       // If user has already voted on this post
+    //       const previousVote = user.votes.find(
+    //         (v) => String(v.postId) === postId.toString()
+    //       ).vote;
+    //       if (previousVote === vote) {
+    //         // If user clicked on the same button again, remove their previous vote
+    //         await usersCollection.updateOne(
+    //           { _id: ObjectId(userId) },
+    //           { $pull: { votes: { postId: ObjectId(postId) } } }
+    //         );
+    //         let update;
+    //         if (vote === "upvote") {
+    //           update = { $inc: { upvotes: -1 } };
+    //         } else if (vote === "downvote") {
+    //           update = { $inc: { downvotes: -1 } };
+    //         } else {
+    //           throw new Error("Invalid vote");
+    //         }
+    //         const post = await articleCollection.findOneAndUpdate(
+    //           { _id: ObjectId(postId) },
+    //           update,
+    //           { returnOriginal: false }
+    //         );
+    //         res.json(post);
+    //       } else {
+    //         // If user clicked on a different button, switch their vote
+    //         await usersCollection.updateOne(
+    //           { _id: ObjectId(userId), "votes.postId": ObjectId(postId) },
+    //           { $set: { "votes.$.vote": vote } }
+    //         );
+    //         let update;
+    //         if (previousVote === "upvote" && vote === "downvote") {
+    //           update = { $inc: { upvotes: -1, downvotes: 1 } };
+    //         } else if (previousVote === "downvote" && vote === "upvote") {
+    //           update = { $inc: { upvotes: 1, downvotes: -1 } };
+    //         } else {
+    //           throw new Error("Invalid vote");
+    //         }
+    //         const post = await articleCollection.findOneAndUpdate(
+    //           { _id: ObjectId(postId) },
+    //           update,
+    //           { returnOriginal: false }
+    //         );
+    //         res.json(post);
+    //       }
+    //     }
+    //   } catch (err) {
+    //     console.error(err.message);
+    //     res.status(500).send("Server Error");
+    //   }
+
+    // const { id } = req.params;
+    // const storyId = { _id: ObjectId(id) };
+    // const { userId } = req.body;
+
+    // try {
+    //   const id = req.params.id;
+    //   const post = await articleCollection.findOneAndUpdate(
+    //     { _id: ObjectId(id) },
+    //     { $inc: { upvotes: 1 } },
+    //     { returnOriginal: false }
+    //   );
+    //   res.json(post);
+    // } catch (err) {
+    //   console.error(err.message);
+    //   res.status(500).send("Server Error");
+    // }
+
+    // try {
+    //   const post = articleCollection.findOneAndUpdate({ storyId });
+    //   post.upvotes += 1;
+    //   await post.save();
+    //   res.json(post);
+    // } catch (err) {
+    //   console.error(err.message);
+    //   res.status(500).send("Server Error");
+    // }
+    // try {
+    //   const article = await articleCollection.findOneAndUpdate(
+    //     { _id: ObjectId(id), upVote: { $ne: userId } },
+    //     { $push: { upVote: userId }, $inc: { upvotes: 1 } },
+    //     { returnOriginal: false }
+    //   );
+
+    //   if (!article.value) {
+    //     return res.status(404).json({ error: "Article not found" });
+    //   }
+
+    //   res.json({ article: article.value });
+    // } catch (err) {
+    //   console.error(err);
+    //   res.status(500).json({ error: "Server error" });
+    // }
+
+    // try {
+    //   const { id } = req.params;
+    //   const storyId = { _id: ObjectId(id) };
+    //   const article = await articleCollection.findOne(storyId);
+    //   if (!article) {
+    //     return res
+    //       .status(404)
+    //       .json({ success: false, message: "Article not found" });
+    //   }
+
+    //   if (article.upVote.includes(req.body.userId)) {
+    //     return res
+    //       .status(400)
+    //       .json({ success: false, message: "User already upvoted" });
+    //   }
+
+    //   article.upVote.push(req.body.userId);
+    //   article.upvotes = article.upVote.length;
+    //   await article.save();
+
+    //   res.json({ success: true, article });
+    // } catch (err) {
+    //   console.log(err);
+    //   res.status(500).json({ success: false, message: "Server error" });
+    // }
+    // });
+
     app.post("/view-story/:id/upvote", async (req, res) => {
-      const { id } = req.params;
-      const { userId } = req.body;
+      const vote = req.body.vote;
 
-      try {
-        const article = await articleCollection.findOneAndUpdate(
-          { _id: ObjectId(id), upVote: { $ne: userId } },
-          { $push: { upVote: userId }, $inc: { upvotes: 1 } },
-          { returnOriginal: false }
-        );
-
-        if (!article.value) {
-          return res.status(404).json({ error: "Article not found" });
-        }
-
-        res.json({ article: article.value });
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Server error" });
+      if (vote !== "upvote" && vote !== "downvote") {
+        res.status(400).json({ error: "Invalid vote type" });
+        return;
       }
+      const post = await articleCollection.findOne({
+        _id: ObjectId(req.params.id),
+      });
 
-      // try {
-      //   const { id } = req.params;
-      //   const storyId = { _id: ObjectId(id) };
-      //   const article = await articleCollection.findOne(storyId);
-      //   if (!article) {
-      //     return res
-      //       .status(404)
-      //       .json({ success: false, message: "Article not found" });
-      //   }
-
-      //   if (article.upVote.includes(req.body.userId)) {
-      //     return res
-      //       .status(400)
-      //       .json({ success: false, message: "User already upvoted" });
-      //   }
-
-      //   article.upVote.push(req.body.userId);
-      //   article.upvotes = article.upVote.length;
-      //   await article.save();
-
-      //   res.json({ success: true, article });
-      // } catch (err) {
-      //   console.log(err);
-      //   res.status(500).json({ success: false, message: "Server error" });
-      // }
+      if (!post) {
+        res.status(404).json({ error: "Post not found" });
+        return;
+      }
+      const update = {};
+      if (vote === "upvote") {
+        update.$inc = { upvotes: 1 };
+        if (post.downvotes > 0) {
+          update.$inc.downvotes = -1;
+        }
+      } else if (vote === "downvote") {
+        update.$inc = { downvotes: 1 };
+        if (post.upvotes > 0) {
+          update.$inc.upvotes = -1;
+        }
+      }
+      const updatedPost = await articleCollection.findOneAndUpdate(
+        { _id: ObjectId(req.params.id) },
+        update,
+        { returnOriginal: false }
+      );
+      res.json(updatedPost.value);
     });
 
     app.post("/view-story/:id/downvote", async (req, res) => {
       const { id } = req.params;
+      const storyId = { _id: ObjectId(id) };
       const { userId } = req.body;
-
       try {
-        const article = await articleCollection.findOneAndUpdate(
-          { _id: ObjectId(id), downVote: { $ne: userId } },
-          { $push: { downVote: userId }, $inc: { downvotes: 1 } },
+        const id = req.params.id;
+        const db = client.db();
+        const post = await articleCollection.findOneAndUpdate(
+          { _id: ObjectId(id) },
+          { $inc: { downvotes: 1 } },
           { returnOriginal: false }
         );
-
-        if (!article.value) {
-          return res.status(404).json({ error: "Article not found" });
-        }
-
-        res.json({ article: article.value });
+        res.json(post);
       } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Server error" });
+        console.error(err.message);
+        res.status(500).send("Server Error");
       }
+      // try {
+      //   const post = articleCollection.findOneAndUpdate({ storyId });
+      //   post.downvotes += 1;
+      //   await post.save();
+      //   res.json(post);
+      // } catch (err) {
+      //   console.error(err.message);
+      //   res.status(500).send("Server Error");
+      // }
       // try {
       //   const { id } = req.params;
       //   const storyId = { _id: ObjectId(id) };
