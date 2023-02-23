@@ -43,23 +43,23 @@ app.use((req, res, next) => {
 
 let users = [];
 // add log in  user 
-const addUsers=(userId,socketId,userInfo)=>{
-  const checkUser = users.some(u=>u._id === userId)
-  if(!checkUser){
-    users.push({userId,socketId,userInfo})
+const addUsers = (userId, socketId, userInfo) => {
+  const checkUser = users.some(u => u._id === userId)
+  if (!checkUser) {
+    users.push({ userId, socketId, userInfo })
   }
 }
 
 // remove log out user
-const userRemove =(socketId)=>{
-  users = users?.filter(u=>u?.socketId !== socketId)
+const userRemove = (socketId) => {
+  users = users?.filter(u => u?.socketId !== socketId)
 }
 // Connection
 io.on("connection", (socket) => {
   // console.log("Client connected");  
-  socket.on("addUser", (singleUsersId,singleUsers) => {
-    addUsers(singleUsersId,socket.id,singleUsers)
-     
+  socket.on("addUser", (singleUsersId, singleUsers) => {
+    addUsers(singleUsersId, socket.id, singleUsers)
+
     io.emit("getUsers", users);
   });
   socket.on("disconnect", () => {
@@ -659,6 +659,7 @@ async function run() {
       );
     });
 
+    // ---------------------------
     // User comment  on article  post to the database
     app.post("/comments", async (req, res) => {
       const comments = req.body;
@@ -684,30 +685,25 @@ async function run() {
       );
     });
 
-    // update COmment
-
-    // app.put("/comment/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   // const query={_id:ObjectId(id)}
-
-    //   const updatedComment = req.body.updatedComment;
-    //   console.log(updatedComment);
-    //   const filter = { _id: ObjectId(id) };
-    //   const options = { upsert: true };
-    //   const updatedDoc = {
-    //     $set: {
-    //       comment: updatedComment,
-    //     },
-    //   };
-    //   console.log(updatedReviw)
-    //   const result = await commentCollection.updateOne(
-    //     filter,
-    //     updatedDoc,
-    //     options
-    //   );
-    //   res.send(result);
-    // });
-
+    // updater comment
+    app.put("/updateComment/:id", async (req, res) => {
+      const id = req.params.id;
+      const comment = req.body.comment;
+      console.log(comment,id);
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          comment: comment,
+        },
+      };
+      const result = await commentCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
     // app.post("/users/decUpVote", (req, res) => {
     //   const storyId = req.body.storyId;
     //   const decUpVoteId = req.body.decUpVoteId;
@@ -747,7 +743,7 @@ async function run() {
 
       res.send(result);
     });
-
+// --------------------------------------------------
     /*=================
     reported story api
     ==================*/
@@ -1134,27 +1130,27 @@ async function run() {
       res.send(result);
     });
 
- // get message
- app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
-  const frndId = req.params.id;
-  const myId = req.params.myId  
-//  console.log(frndId)
-//  console.log(myId)
-  const result = await messagesCollection.find({}).toArray();
-  const filter = result.filter(m=>m.senderId===myId && m.reciverId===frndId || m.reciverId===myId && m.senderId===frndId)
-  res.send(filter);
+    // get message
+    app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
+      const frndId = req.params.id;
+      const myId = req.params.myId
+      //  console.log(frndId)
+      //  console.log(myId)
+      const result = await messagesCollection.find({}).toArray();
+      const filter = result.filter(m => m.senderId === myId && m.reciverId === frndId || m.reciverId === myId && m.senderId === frndId)
+      res.send(filter);
 
-});
+    });
 
-// send image
-app.post("/send-image", async (req, res) => {
-  const imgMessage = req.body.data;
-  const result = await messagesCollection.insertOne(imgMessage );
-  res.send(result);
-});
+    // send image
+    app.post("/send-image", async (req, res) => {
+      const imgMessage = req.body.data;
+      const result = await messagesCollection.insertOne(imgMessage);
+      res.send(result);
+    });
 
     // inbox 
-    app.get('/conversetion',async(req,res)=>{
+    app.get('/conversetion', async (req, res) => {
       const conversations = await Conversation.find({
         $or: [
           { "creator.id": req.user.userid },
