@@ -838,6 +838,7 @@ async function run() {
       );
     });
 
+    // ---------------------------
     // User comment  on article  post to the database
     app.post("/comments", async (req, res) => {
       const comments = req.body;
@@ -863,30 +864,25 @@ async function run() {
       );
     });
 
-    // update COmment
-
-    // app.put("/comment/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   // const query={_id:ObjectId(id)}
-
-    //   const updatedComment = req.body.updatedComment;
-    //   console.log(updatedComment);
-    //   const filter = { _id: ObjectId(id) };
-    //   const options = { upsert: true };
-    //   const updatedDoc = {
-    //     $set: {
-    //       comment: updatedComment,
-    //     },
-    //   };
-    //   console.log(updatedReviw)
-    //   const result = await commentCollection.updateOne(
-    //     filter,
-    //     updatedDoc,
-    //     options
-    //   );
-    //   res.send(result);
-    // });
-
+    // updater comment
+    app.put("/updateComment/:id", async (req, res) => {
+      const id = req.params.id;
+      const comment = req.body.comment;
+      console.log(comment,id);
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          comment: comment,
+        },
+      };
+      const result = await commentCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
     // app.post("/users/decUpVote", (req, res) => {
     //   const storyId = req.body.storyId;
     //   const decUpVoteId = req.body.decUpVoteId;
@@ -926,7 +922,7 @@ async function run() {
 
       res.send(result);
     });
-
+// --------------------------------------------------
     /*=================
     reported story api
     ==================*/
