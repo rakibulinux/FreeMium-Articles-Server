@@ -18,6 +18,10 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
   },
 });
+const nodemailer = require("nodemailer");
+const mg = require('nodemailer-mailgun-transport');
+// const sgMail = require('@sendgrid/mail');
+// sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const axios = require("axios");
 // step one
@@ -113,6 +117,86 @@ const authMiddleware = async (req, res, next) => {
 app.get("/", (req, res) => {
   res.send(`FreeMium Articles running on port ${port}`);
 });
+
+function sendPaymentEmail(PaidUserEmail, paidUser){
+  const {name, phone, email, amount, transactionId} = paidUser
+//   let transporter = nodemailer.createTransport({
+//     host: 'smtp.sendgrid.net',
+//     port: 587,
+//     auth: {
+//         user: "apikey",
+//         pass: process.env.SENDGRID_API_KEY
+//     }
+//  })
+const auth = {
+  auth: {
+    api_key: process.env.EMAIL_SEND_KEY,
+    domain: process.env.EMAIL_SEND_DOMAIN
+  }
+}
+
+const transporter = nodemailer.createTransport(mg(auth));
+
+ transporter.sendMail({
+  from: "md.sifat.ur.rahman2702@gmail.com", // verified sender email
+  to: PaidUserEmail, // recipient email
+  subject: "Membership of FreeMium Articles", // Subject line
+  text: "Congratulations you have got the membership of FreeMium website.", // plain text body
+  html: `<head>
+  <style>
+        table {
+          border-collapse: collapse;
+          
+        }
+        th, td {
+          
+          padding: 26px;
+          border: 1px solid black;
+        }
+        th {
+          background-color: #ddd;
+        }
+        
+      </style>
+      </head>
+      <h1>Congratulations you have got the membership of FreeMium website. </h1>
+  <table>
+  <tr>
+    <th>Name</th>
+    <th>${name}</th>
+    
+  </tr>
+  <tr>
+    <td>Email</td>
+    <td>${email}</td>
+    
+  </tr>
+  <tr>
+    <td>Phone Number</td>
+    <td>${phone}</td>
+    
+  </tr>
+  <tr>
+    <td>Amount</td>
+    <td>${amount}</td>
+    
+  </tr>
+  <tr>
+    <td>Transaction Id</td>
+    <td>${transactionId}</td>
+    
+  </tr>
+</table>
+<h3>Save your transaction ID for later use </h3>
+`, // html body
+}, function(error, info){
+  if (error) {
+    console.log(error);
+  } else {
+    console.log('Email sent: ' + info.response);
+  }
+});
+}
 
 async function run() {
   try {
@@ -565,11 +649,15 @@ async function run() {
         { $set: { isPaid: true, paidTime: new Date() } }
       );
 
+      
+      sendPaymentEmail(PaidUserEmail,paidUser)
+
       if (result.modifiedCount > 0) {
         res.redirect(
           `${process.env.CLIENT_URL}/success?transactionId=${transactionId}`
         );
       }
+     
     });
 
     app.post("/payment/cancel", async (req, res) => {
