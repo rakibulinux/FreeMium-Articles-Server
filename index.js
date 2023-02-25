@@ -59,56 +59,53 @@ const addUsers = (userId, socketId, userInfo) => {
 // const users = {};
 
 // remove log out user
-const userRemove =(socketId)=>{
-  users = users?.filter(u=>u?.socketId !== socketId)
-}
-const findFriend = (id)=>{
-  return users.find(u=>u?.userId===id)
-}
+const userRemove = (socketId) => {
+  users = users?.filter((u) => u?.socketId !== socketId);
+};
+const findFriend = (id) => {
+  return users.find((u) => u?.userId === id);
+};
 // Connection
 io.on("connection", (socket) => {
-  // console.log("Client connected");  
-  socket.on("addUser", (singleUsersId,singleUsers) => {
-    addUsers(singleUsersId,socket.id,singleUsers)
-   
+  // console.log("Client connected");
+  socket.on("addUser", (singleUsersId, singleUsers) => {
+    addUsers(singleUsersId, socket.id, singleUsers);
+
     io.emit("getUsers", users);
   });
-// send message
-socket.on("sendMessage", (data) => {
+  // send message
+  socket.on("sendMessage", (data) => {
+    const user = findFriend(data.reciverId);
 
-  const user = findFriend (data.reciverId);
- 
-  if(user !== undefined){
-    socket.to(user.socketId).emit("getMessage", {
-      senderId: data?.senderId,
-      senderName: data?.senderName,
-      reciverId: data?.reciverId,
-      message: data?.message,
-      createAt: data?.date,
-    })
-  }   
-  // io.emit("getMessage", users);
-});
+    if (user !== undefined) {
+      socket.to(user.socketId).emit("getMessage", {
+        senderId: data?.senderId,
+        senderName: data?.senderName,
+        reciverId: data?.reciverId,
+        message: data?.message,
+        createAt: data?.date,
+      });
+    }
+    // io.emit("getMessage", users);
+  });
 
-// get typing message
-socket.on("typingMessage", (data) => { 
-  const user = findFriend (data?.reciverId); 
-  if(user !== undefined){
-    socket.to(user?.socketId).emit("getTypingMessage", {
-      senderId:data?.senderId,
-      reciverId:data?.reciverId,
-      msg:data?.msg,
-     
-    })
-  }
+  // get typing message
+  socket.on("typingMessage", (data) => {
+    const user = findFriend(data?.reciverId);
+    if (user !== undefined) {
+      socket.to(user?.socketId).emit("getTypingMessage", {
+        senderId: data?.senderId,
+        reciverId: data?.reciverId,
+        msg: data?.msg,
+      });
+    }
+  });
 
-});
-
-socket.on("disconnect", () => {
-  userRemove(socket.id);
-  io.emit("getUsers", users);
-  //
-});
+  socket.on("disconnect", () => {
+    userRemove(socket.id);
+    io.emit("getUsers", users);
+    //
+  });
   // user disconnet
   // socket.on("disconnect", () => {
   //   // remove the user from our list of users
@@ -116,7 +113,6 @@ socket.on("disconnect", () => {
   //   // notify the other users that a user has left
   //   socket.broadcast.emit("user left", socket.id);
   // });
-
 });
 
 /*===============
@@ -639,15 +635,15 @@ async function run() {
       const query = req.params.query;
       console.log(query);
       const regex = new RegExp(query, "i");
-
+      console.log(regex);
       const suggestions = await articleCollection
-        .find({ title: { $regex: regex } }, { title: 1 })
+        .find({ articleTitle: { $regex: regex } }, { articleTitle: 1 })
         .limit(5)
         .toArray();
       const articles = await articleCollection
         .find({ $text: { $search: query } })
         .toArray();
-
+      console.log(suggestions);
       res.json({ articles, suggestions });
     });
     // Payment gateway sslcommerz setup
@@ -732,9 +728,17 @@ async function run() {
     });
 
     // Create a new notification
-    const createNotification = (userId, message, type) => {
+    const createNotification = (
+      userId,
+      senderId,
+      senderName,
+      message,
+      type
+    ) => {
       const newNotification = {
         userId: userId,
+        senderName: senderName,
+        senderId: senderId,
         message: message,
         type: type,
         timestamp: new Date(),
@@ -747,6 +751,7 @@ async function run() {
         } else {
           // Emit the new notification to the user's socket
           io.to(userId).emit("new_notification", result);
+          console.log(result);
         }
       });
     };
@@ -779,6 +784,7 @@ async function run() {
         } else {
           // Emit the new notification to all clients
           io.emit("new_notification", result.ops[0]);
+          console.log(result);
           res.send(result.ops[0]);
         }
       });
@@ -1167,92 +1173,111 @@ async function run() {
     messaging api
     =================== */
 
-    const getLastMassage =async(myId,frndId)=>{
+    const getLastMassage = async (myId, frndId) => {
       // console.log(frndId,myId)
-const lastMessage =await messagesCollection.find({
-  $or: [
-        {
-          $and:[{senderId:{$eq:myId}},{reciverId:{$eq:frndId}}]
-         },
-        {
-          $and:[{reciverId:{$eq:myId}},{senderId:{$eq:frndId}}]
-        },
-      ],
-}).sort({date:-1})
+      const lastMessage = await messagesCollection
+        .find({
+          $or: [
+            {
+              $and: [
+                { senderId: { $eq: myId } },
+                { reciverId: { $eq: frndId } },
+              ],
+            },
+            {
+              $and: [
+                { reciverId: { $eq: myId } },
+                { senderId: { $eq: frndId } },
+              ],
+            },
+          ],
+        })
+        .sort({ date: -1 });
 
-return lastMessage
-}
+      return lastMessage;
+    };
 
     // get friend data .sort({ date: -1 }) { sort: { date: -1 } } .sort({date:-1}).limit(1);
     app.get("/friends", async (req, res) => {
       const myId = req.query.myId;
-let friendMessage =[]
-      const getFriend = await usersCollection.find({
-        _id:{$ne:myId}
-      }).toArray();
+      let friendMessage = [];
+      const getFriend = await usersCollection
+        .find({
+          _id: { $ne: myId },
+        })
+        .toArray();
       // console.log(getFriend)
-      for(let i=0;i<getFriend.length;i++){
-        let friendId = getFriend[i]._id
+      for (let i = 0; i < getFriend.length; i++) {
+        let friendId = getFriend[i]._id;
         // myObjectId = ObjectId("507c7f79bcf86cd7994f6c0e")
-frindObjectIdString = friendId.toString()
+        frindObjectIdString = friendId.toString();
         // let friendId = getFriend[i]._id
         // console.log(frindObjectIdString)
-        let lastMsg = await getLastMassage(myId,frindObjectIdString)
-        
-        console.log(lastMsg)
+        let lastMsg = await getLastMassage(myId, frindObjectIdString);
       }
 
       res.send(getFriend);
     });
-// app.get("/friends", async (req, res) => {
-//   const myId = req.query.myId;
-//   const getFriend = await usersCollection.find({
-//     _id: { $ne: myId },
-//   }).toArray();
-//   const friendMessages = [];
+    // app.get("/friends", async (req, res) => {
+    //   const myId = req.query.myId;
+    //   const getFriend = await usersCollection.find({
+    //     _id: { $ne: myId },
+    //   }).toArray();
+    //   const friendMessages = [];
 
-//   for (let i = 0; i < getFriend.length; i++) {
-//     let lastMsg = await getLastMessage(myId, getFriend[i]._id);
-//     friendMessages.push(lastMsg);
-//   }
-// console.log(friendMessages)
-//   res.send(friendMessages);
-// });
-
-   
-    
-
-
+    //   for (let i = 0; i < getFriend.length; i++) {
+    //     let lastMsg = await getLastMessage(myId, getFriend[i]._id);
+    //     friendMessages.push(lastMsg);
+    //   }
+    // console.log(friendMessages)
+    //   res.send(friendMessages);
+    // });
 
     // send message
     app.post("/sendMessage", async (req, res) => {
       const message = req.body.data;
 
       const result = await messagesCollection.insertOne(message);
-      createNotification(message.reciverId, message.message.text, "message");
+      console.log(result);
+      console.log(message);
+      createNotification(
+        message.reciverId,
+        message.senderId,
+        message.senderName,
+        message.message.text,
+        "message"
+      );
 
       res.send(result);
     });
 
- // get message
- app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
-  const frndId = req.params.id;
-  const myId = req.params.myId  
-  // console.log(frndId,myId)
-  const result = await messagesCollection.find({
-    $or: [
-          {
-            $and:[{senderId:{$eq:myId}},{reciverId:{$eq:frndId}}]
-           },
-          {
-            $and:[{reciverId:{$eq:myId}},{senderId:{$eq:frndId}}]
-          },
-        ],
-  }).toArray();
+    // get message
+    app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
+      const frndId = req.params.id;
+      const myId = req.params.myId;
+      // console.log(frndId,myId)
+      const result = await messagesCollection
+        .find({
+          $or: [
+            {
+              $and: [
+                { senderId: { $eq: myId } },
+                { reciverId: { $eq: frndId } },
+              ],
+            },
+            {
+              $and: [
+                { reciverId: { $eq: myId } },
+                { senderId: { $eq: frndId } },
+              ],
+            },
+          ],
+        })
+        .toArray();
 
-  // const filter = result.filter(m=>m.senderId===myId && m.reciverId===frndId || m.reciverId===myId && m.senderId===frndId)
-  res.send(result);
- })
+      // const filter = result.filter(m=>m.senderId===myId && m.reciverId===frndId || m.reciverId===myId && m.senderId===frndId)
+      res.send(result);
+    });
     // send image
     app.post("/send-image", async (req, res) => {
       const imgMessage = req.body.data;
@@ -1260,25 +1285,16 @@ frindObjectIdString = friendId.toString()
       res.send(result);
     });
 
-// send image
-app.post("/send-image", async (req, res) => {
-  const imgMessage = req.body.data;
-  const result = await messagesCollection.insertOne(imgMessage );
-  res.send(result);
-});
+    // send image
+    app.post("/send-image", async (req, res) => {
+      const imgMessage = req.body.data;
+      const result = await messagesCollection.insertOne(imgMessage);
+      res.send(result);
+    });
 
-
-
-
-
-
-
-
-
-
-    // inbox 
-    app.get('/conversetion',async(req,res)=>{
-      const conversations = await Conversation.find({
+    // inbox
+    app.get("/conversetion", async (req, res) => {
+      const conversations = await messagesCollection.find({
         $or: [
           { "creator.id": req.user.userid },
           { "participant.id": req.user.userid },
@@ -1553,11 +1569,19 @@ app.post("/send-image", async (req, res) => {
       }
     });
 
-    // Get all reviews for a specific user
+    // Get all stories for a specific user
     app.get("/my-stories", async (req, res) => {
       const email = req.query.email;
       let query = { userEmail: email };
       const articles = await articleCollection.find(query).toArray();
+      res.send(articles);
+    });
+
+    // Get all stories for a specific user
+    app.get("/my-stories-3", async (req, res) => {
+      const email = req.query.email;
+      let query = { userEmail: email };
+      const articles = await articleCollection.find(query).limit(3).toArray();
       res.send(articles);
     });
 
