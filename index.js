@@ -67,7 +67,6 @@ const findFriend = (id) => {
 };
 // Connection
 io.on("connection", (socket) => {
-  console.log("Client connected");
   socket.on("addUser", (singleUsersId, singleUsers) => {
     addUsers(singleUsersId, socket.id, singleUsers);
 
@@ -105,7 +104,6 @@ io.on("connection", (socket) => {
 io.on("disconnect", () => {
   userRemove(socket.id);
   io.emit("getUsers", users);
-  console.log("user disconnect");
 });
 // user disconnet
 // socket.on("disconnect", () => {
@@ -626,9 +624,7 @@ async function run() {
 
     app.get("/search/:query", async (req, res) => {
       const query = req.params.query;
-      console.log(query);
       const regex = new RegExp(query, "i");
-      console.log(regex);
       const suggestions = await articleCollection
         .find({ articleTitle: { $regex: regex } }, { articleTitle: 1 })
         .limit(5)
@@ -636,7 +632,6 @@ async function run() {
       const articles = await articleCollection
         .find({ $text: { $search: query } })
         .toArray();
-      console.log(suggestions);
       res.json({ articles, suggestions });
     });
     // Payment gateway sslcommerz setup
@@ -744,7 +739,6 @@ async function run() {
         } else {
           // Emit the new notification to the user's socket
           io.to(userId).emit("new_notification", result);
-          console.log(result);
         }
       });
     };
@@ -777,7 +771,6 @@ async function run() {
         } else {
           // Emit the new notification to all clients
           io.emit("new_notification", result.ops[0]);
-          console.log(result);
           res.send(result.ops[0]);
         }
       });
@@ -1041,9 +1034,8 @@ async function run() {
 
       // user is logged in
       const user = await usersCollection.findOne({ _id: ObjectId(userId) });
-
       if (story.isPaid && user.isPaid) {
-        return res.send(story);
+        return res.json(story);
       } else if (story.userId === userId) {
         return res.send(story);
       } else if (story.isPaid && userId) {
@@ -1167,7 +1159,6 @@ async function run() {
     =================== */
 
     //     const getLastMassage =async(myId,frndId)=>{
-    //       // console.log(frndId,myId)
     // const lastMessage =await messagesCollection.find({
     //   $or: [
     //         {
@@ -1191,7 +1182,6 @@ async function run() {
         })
         .toArray();
 
-      // console.log(getFriend)
       //       for(let i=0;i<getFriend.length;i++){
       //         let friendId = getFriend[i]._id
       // frindObjectIdString = friendId.toString()
@@ -1207,8 +1197,6 @@ async function run() {
       const message = req.body.data;
 
       const result = await messagesCollection.insertOne(message);
-      console.log(result);
-      console.log(message);
       createNotification(
         message.reciverId,
         message.senderId,
@@ -1224,7 +1212,6 @@ async function run() {
     app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
       const frndId = req.params.id;
       const myId = req.params.myId;
-      // console.log(frndId,myId)
       const result = await messagesCollection
         .find({
           $or: [
@@ -1356,7 +1343,7 @@ async function run() {
     });
 
     // UpVote & DownVote API
-    app.post("/view-story/:id/upvote", async (req, res) => {
+    app.post("/upvote-story/:id/upvote", async (req, res) => {
       const vote = req.body.vote;
 
       if (vote !== "upvote" && vote !== "downvote") {
@@ -1391,7 +1378,7 @@ async function run() {
       res.json(updatedPost.value);
     });
 
-    app.post("/view-story/:id/downvote", async (req, res) => {
+    app.post("/downvote-story/:id/downvote", async (req, res) => {
       const { id } = req.params;
       const storyId = { _id: ObjectId(id) };
       const { userId } = req.body;
