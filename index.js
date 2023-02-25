@@ -44,6 +44,9 @@ app.use((req, res, next) => {
   next();
 });
 
+/*===============
+all socket work
+================= */
 let users = [];
 // add log in  user
 const addUsers = (userId, socketId, userInfo) => {
@@ -55,45 +58,70 @@ const addUsers = (userId, socketId, userInfo) => {
 
 // const users = {};
 
-io.on("connection", (socket) => {
-  // add the user to our list of users
-  users[socket.id] = true;
-
-  // notify the other users that a new user has joined
-  socket.broadcast.emit("user joined", socket.id);
-
-  // forward signal to the appropriate user
-  socket.on("signal", (data) => {
-    socket.broadcast.emit("signal", data);
-  });
-
-  socket.on("disconnect", () => {
-    // remove the user from our list of users
-    delete users[socket.id];
-
-    // notify the other users that a user has left
-    socket.broadcast.emit("user left", socket.id);
-  });
-});
-
 // remove log out user
-const userRemove = (socketId) => {
-  users = users?.filter((u) => u?.socketId !== socketId);
-};
+const userRemove =(socketId)=>{
+  users = users?.filter(u=>u?.socketId !== socketId)
+}
+const findFriend = (id)=>{
+  return users.find(u=>u?.userId===id)
+}
 // Connection
 io.on("connection", (socket) => {
-  //
-  socket.on("addUser", (singleUsersId, singleUsers) => {
-    addUsers(singleUsersId, socket.id, singleUsers);
+  // console.log("Client connected");  
+  socket.on("addUser", (singleUsersId,singleUsers) => {
+    addUsers(singleUsersId,socket.id,singleUsers)
+   
+    io.emit("getUsers", users);
+  });
+// send message
+socket.on("sendMessage", (data) => {
 
-    io.emit("getUsers", users);
-  });
-  socket.on("disconnect", () => {
-    userRemove(socket.id);
-    io.emit("getUsers", users);
-    //
-  });
+  const user = findFriend (data.reciverId);
+ 
+  if(user !== undefined){
+    socket.to(user.socketId).emit("getMessage", {
+      senderId: data?.senderId,
+      senderName: data?.senderName,
+      reciverId: data?.reciverId,
+      message: data?.message,
+      createAt: data?.date,
+    })
+  }   
+  // io.emit("getMessage", users);
 });
+
+// get typing message
+socket.on("typingMessage", (data) => { 
+  const user = findFriend (data?.reciverId); 
+  if(user !== undefined){
+    socket.to(user?.socketId).emit("getTypingMessage", {
+      senderId:data?.senderId,
+      reciverId:data?.reciverId,
+      msg:data?.msg,
+     
+    })
+  }
+
+});
+
+socket.on("disconnect", () => {
+  userRemove(socket.id);
+  io.emit("getUsers", users);
+  //
+});
+  // user disconnet
+  // socket.on("disconnect", () => {
+  //   // remove the user from our list of users
+  //   delete users[socket.id];
+  //   // notify the other users that a user has left
+  //   socket.broadcast.emit("user left", socket.id);
+  // });
+
+});
+
+/*===============
+sslcommerz
+================*/
 
 // sslcommerz
 const store_id = process.env.STORE_ID;
@@ -1138,16 +1166,64 @@ async function run() {
     /*=================
     messaging api
     =================== */
-    // get friend data
+
+    const getLastMassage =async(myId,frndId)=>{
+      // console.log(frndId,myId)
+const lastMessage =await messagesCollection.find({
+  $or: [
+        {
+          $and:[{senderId:{$eq:myId}},{reciverId:{$eq:frndId}}]
+         },
+        {
+          $and:[{reciverId:{$eq:myId}},{senderId:{$eq:frndId}}]
+        },
+      ],
+}).sort({date:-1})
+
+return lastMessage
+}
+
+    // get friend data .sort({ date: -1 }) { sort: { date: -1 } } .sort({date:-1}).limit(1);
     app.get("/friends", async (req, res) => {
-      const id = req.query.myId;
+      const myId = req.query.myId;
+let friendMessage =[]
+      const getFriend = await usersCollection.find({
+        _id:{$ne:myId}
+      }).toArray();
+      // console.log(getFriend)
+      for(let i=0;i<getFriend.length;i++){
+        let friendId = getFriend[i]._id
+        // myObjectId = ObjectId("507c7f79bcf86cd7994f6c0e")
+frindObjectIdString = friendId.toString()
+        // let friendId = getFriend[i]._id
+        // console.log(frindObjectIdString)
+        let lastMsg = await getLastMassage(myId,frindObjectIdString)
+        
+        console.log(lastMsg)
+      }
 
-      const result = await usersCollection.find({}).toArray();
-      const filter = result.filter((d) => d._id !== id);
-
-      // find({database_id: {$ne: id }})
-      res.send(filter);
+      res.send(getFriend);
     });
+// app.get("/friends", async (req, res) => {
+//   const myId = req.query.myId;
+//   const getFriend = await usersCollection.find({
+//     _id: { $ne: myId },
+//   }).toArray();
+//   const friendMessages = [];
+
+//   for (let i = 0; i < getFriend.length; i++) {
+//     let lastMsg = await getLastMessage(myId, getFriend[i]._id);
+//     friendMessages.push(lastMsg);
+//   }
+// console.log(friendMessages)
+//   res.send(friendMessages);
+// });
+
+   
+    
+
+
+
     // send message
     app.post("/sendMessage", async (req, res) => {
       const message = req.body.data;
@@ -1158,21 +1234,25 @@ async function run() {
       res.send(result);
     });
 
-    // get message
-    app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
-      const frndId = req.params.id;
-      const myId = req.params.myId;
-      //
-      //
-      const result = await messagesCollection.find({}).toArray();
-      const filter = result.filter(
-        (m) =>
-          (m.senderId === myId && m.reciverId === frndId) ||
-          (m.reciverId === myId && m.senderId === frndId)
-      );
-      res.send(filter);
-    });
+ // get message
+ app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
+  const frndId = req.params.id;
+  const myId = req.params.myId  
+  // console.log(frndId,myId)
+  const result = await messagesCollection.find({
+    $or: [
+          {
+            $and:[{senderId:{$eq:myId}},{reciverId:{$eq:frndId}}]
+           },
+          {
+            $and:[{reciverId:{$eq:myId}},{senderId:{$eq:frndId}}]
+          },
+        ],
+  }).toArray();
 
+  // const filter = result.filter(m=>m.senderId===myId && m.reciverId===frndId || m.reciverId===myId && m.senderId===frndId)
+  res.send(result);
+ })
     // send image
     app.post("/send-image", async (req, res) => {
       const imgMessage = req.body.data;
@@ -1180,9 +1260,25 @@ async function run() {
       res.send(result);
     });
 
-    // inbox
-    app.get("/conversetion", async (req, res) => {
-      const conversations = await messagesCollection.find({
+// send image
+app.post("/send-image", async (req, res) => {
+  const imgMessage = req.body.data;
+  const result = await messagesCollection.insertOne(imgMessage );
+  res.send(result);
+});
+
+
+
+
+
+
+
+
+
+
+    // inbox 
+    app.get('/conversetion',async(req,res)=>{
+      const conversations = await Conversation.find({
         $or: [
           { "creator.id": req.user.userid },
           { "participant.id": req.user.userid },
