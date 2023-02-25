@@ -67,7 +67,7 @@ const findFriend = (id)=>{
 }
 // Connection
 io.on("connection", (socket) => {
-  // console.log("Client connected");  
+  console.log("Client connected");  
   socket.on("addUser", (singleUsersId,singleUsers) => {
     addUsers(singleUsersId,socket.id,singleUsers)
    
@@ -107,7 +107,7 @@ socket.on("typingMessage", (data) => {
 socket.on("disconnect", () => {
   userRemove(socket.id);
   io.emit("getUsers", users);
-  //
+  console.log('user disconnect')
 });
   // user disconnet
   // socket.on("disconnect", () => {
@@ -118,7 +118,6 @@ socket.on("disconnect", () => {
   // });
 
 });
-
 /*===============
 sslcommerz
 ================*/
@@ -156,13 +155,6 @@ function verifyJWT(req, res, next) {
   });
 }
 
-//=============Verify authmiddleware function
-
-const authMiddleware = async (req, res, next) => {
-  // const {freeMiumToken} = req.cookie;
-
-  next();
-};
 // check main route
 app.get("/", (req, res) => {
   res.send(`FreeMium Articles running on port ${port}`);
@@ -1167,62 +1159,39 @@ async function run() {
     messaging api
     =================== */
 
-    const getLastMassage =async(myId,frndId)=>{
-      // console.log(frndId,myId)
-const lastMessage =await messagesCollection.find({
-  $or: [
-        {
-          $and:[{senderId:{$eq:myId}},{reciverId:{$eq:frndId}}]
-         },
-        {
-          $and:[{reciverId:{$eq:myId}},{senderId:{$eq:frndId}}]
-        },
-      ],
-}).sort({date:-1})
-
-return lastMessage
-}
+//     const getLastMassage =async(myId,frndId)=>{
+//       // console.log(frndId,myId)
+// const lastMessage =await messagesCollection.find({
+//   $or: [
+//         {
+//           $and:[{senderId:{$eq:myId}},{reciverId:{$eq:frndId}}]
+//          },
+//         {
+//           $and:[{reciverId:{$eq:myId}},{senderId:{$eq:frndId}}]
+//         },
+//       ],
+// }).sort({date:-1})
+// return lastMessage
+// }
 
     // get friend data .sort({ date: -1 }) { sort: { date: -1 } } .sort({date:-1}).limit(1);
     app.get("/friends", async (req, res) => {
       const myId = req.query.myId;
-let friendMessage =[]
+// let friendMessage =[]
       const getFriend = await usersCollection.find({
         _id:{$ne:myId}
       }).toArray();
+
       // console.log(getFriend)
-      for(let i=0;i<getFriend.length;i++){
-        let friendId = getFriend[i]._id
-        // myObjectId = ObjectId("507c7f79bcf86cd7994f6c0e")
-frindObjectIdString = friendId.toString()
-        // let friendId = getFriend[i]._id
-        // console.log(frindObjectIdString)
-        let lastMsg = await getLastMassage(myId,frindObjectIdString)
+//       for(let i=0;i<getFriend.length;i++){
+//         let friendId = getFriend[i]._id    
+// frindObjectIdString = friendId.toString()
+//         let lastMsg = await getLastMassage(myId,frindObjectIdString)       
         
-        console.log(lastMsg)
-      }
+//       }
 
       res.send(getFriend);
     });
-// app.get("/friends", async (req, res) => {
-//   const myId = req.query.myId;
-//   const getFriend = await usersCollection.find({
-//     _id: { $ne: myId },
-//   }).toArray();
-//   const friendMessages = [];
-
-//   for (let i = 0; i < getFriend.length; i++) {
-//     let lastMsg = await getLastMessage(myId, getFriend[i]._id);
-//     friendMessages.push(lastMsg);
-//   }
-// console.log(friendMessages)
-//   res.send(friendMessages);
-// });
-
-   
-    
-
-
 
     // send message
     app.post("/sendMessage", async (req, res) => {
@@ -1248,7 +1217,7 @@ frindObjectIdString = friendId.toString()
             $and:[{reciverId:{$eq:myId}},{senderId:{$eq:frndId}}]
           },
         ],
-  }).toArray();
+  }).sort({date:1}).toArray();
 
   // const filter = result.filter(m=>m.senderId===myId && m.reciverId===frndId || m.reciverId===myId && m.senderId===frndId)
   res.send(result);
@@ -1261,11 +1230,11 @@ frindObjectIdString = friendId.toString()
     });
 
 // send image
-app.post("/send-image", async (req, res) => {
-  const imgMessage = req.body.data;
-  const result = await messagesCollection.insertOne(imgMessage );
-  res.send(result);
-});
+// app.post("/send-image", async (req, res) => {
+//   const imgMessage = req.body.data;
+//   const result = await messagesCollection.insertOne(imgMessage );
+//   res.send(result);
+// });
 
 
 
@@ -1339,106 +1308,9 @@ app.post("/send-image", async (req, res) => {
         });
       }
     });
-
-    // send new message
-    async function sendMessage(req, res, next) {
-      if (req.body.message || (req.files && req.files.length > 0)) {
-        try {
-          // save message text/attachment in database
-          let attachments = null;
-
-          if (req.files && req.files.length > 0) {
-            attachments = [];
-
-            req.files.forEach((file) => {
-              attachments.push(file.filename);
-            });
-          }
-
-          const newMessage = new Message({
-            text: req.body.message,
-            attachment: attachments,
-            sender: {
-              id: req.user.userid,
-              name: req.user.username,
-              avatar: req.user.avatar || null,
-            },
-            receiver: {
-              id: req.body.receiverId,
-              name: req.body.receiverName,
-              avatar: req.body.avatar || null,
-            },
-            conversation_id: req.body.conversationId,
-          });
-
-          const result = await newMessage.save();
-
-          // emit socket event
-          global.io.emit("new_message", {
-            message: {
-              conversation_id: req.body.conversationId,
-              sender: {
-                id: req.user.userid,
-                name: req.user.username,
-                avatar: req.user.avatar || null,
-              },
-              message: req.body.message,
-              attachment: attachments,
-              date_time: result.date_time,
-            },
-          });
-
-          res.status(200).json({
-            message: "Successful!",
-            data: result,
-          });
-        } catch (err) {
-          res.status(500).json({
-            errors: {
-              common: {
-                msg: err.message,
-              },
-            },
-          });
-        }
-      } else {
-        res.status(500).json({
-          errors: {
-            common: "message text or attachment is required!",
-          },
-        });
-      }
-    }
-
-    app.post("/message", (req, res) => {
-      const { sender, recipient, message } = req.body;
-      // insert the message into the database
-      messagesCollection.insertOne(
-        {
-          sender,
-          recipient,
-          message,
-          timestamp: new Date(),
-        },
-        (err, result) => {
-          if (err) {
-            return res.status(500).send({ error: err });
-          }
-          return res.send({ message: "Message sent successfully" });
-        }
-      );
-    });
-
-    app.get("/messages", (req, res) => {
-      messagesCollection.find({}).toArray((err, messages) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).send(err);
-        }
-        res.send(messages);
-        client.close();
-      });
-    });
+ 
+         
+   
     // Create endpoint for getting all conversations
     app.get("/conversations", async (req, res) => {
       // Find all conversations
@@ -1473,36 +1345,7 @@ app.post("/send-image", async (req, res) => {
       // Return the ID of the new conversation
       res.json({ id: result.insertedId });
     });
-
-    // Create endpoint for adding a new message to a conversation
-    app.post("/conversations/:id/messages", async (req, res) => {
-      try {
-        const conversationId = req.params.id;
-        const newMessage = req.body;
-
-        // Find the conversation with the specified id
-        const conversation = await messagesCollection.findOne({
-          _id: ObjectId(conversationId),
-        });
-
-        // Push the new message to the conversation's messages array
-        conversation.messages.push(newMessage);
-
-        // Save the updated conversation back to the database
-        await conversationsCollection.updateOne(
-          { _id: ObjectId(conversationId) },
-          { $set: { messages: conversation.messages } }
-        );
-
-        // Return a success response
-        res.status(200).json({ message: "Message added successfully" });
-      } catch (error) {
-        console.error(error);
-        res
-          .status(500)
-          .json({ error: "An error occurred while adding the message" });
-      }
-    });
+       
 
     // Endpoint to import story
     app.post("/import-story", async (req, res) => {
