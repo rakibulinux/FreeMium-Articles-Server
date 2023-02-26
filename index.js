@@ -362,7 +362,6 @@ async function run() {
       // console.log(regex);
       const suggestions = await usersCollection
         .find({ name: { $regex: regex } }, { name: 1 })
-        .limit(5)
         .toArray();
       const userName = await usersCollection
         .find({ $text: { $search: query } })
