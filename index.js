@@ -218,6 +218,36 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    // app.get('/searchUser/:query', (req, res) => {
+    //   const query = req.query.query;
+
+    //   usersCollection.find({ $text: { $search: query } }).toArray((err, results) => {
+    //     if (err) {
+    //       console.error('Error searching MongoDB:', err);
+    //       res.status(500).json({ error: 'Internal server error' });
+    //       return;
+    //     }
+  
+    //     // Send back the results as a JSON response
+    //     res.json({ results });
+    //   });
+    // });
+    // search user
+    app.get("/writer-search/:query", async (req, res) => {
+      const query = req.params.query;
+      console.log(query);
+      const regex = new RegExp(query, "i");
+      // console.log(regex);
+      const suggestions = await usersCollection
+        .find({ name: { $regex: regex } }, { name: 1 })
+        .limit(5)
+        .toArray();
+      const userName = await usersCollection
+        .find({ $text: { $search: query } })
+        .toArray();
+      console.log(suggestions);
+    res.json({ userName, suggestions });
+    });
     // limit depend on the user call
     app.get("/all-users/:selectNumber", async (req, res) => {
       const userSelect = req.params.selectNumber;
@@ -290,7 +320,7 @@ async function run() {
       const adminUser = await usersCollection.findOne(query);
       res.send({ isAdmin: adminUser?.role === "admin" });
     });
-
+// all articles
     app.get("/allArticles", async (req, res) => {
       const query = {};
       const article = await articleCollection.find(query).toArray();
@@ -347,7 +377,7 @@ async function run() {
       const result = await categoryButtonCollection.insertOne(category);
       res.send(result);
     });
-    // category button api
+    // category button api   
     app.get("/categoryButton", async (req, res) => {
       const query = {};
       const categoryButton = await categoryButtonCollection
@@ -1051,7 +1081,7 @@ async function run() {
         })
         .catch((error) => {
           res.status(500).json({ error: error.message });
-        });
+        }); 
     });
 
     app.post("/hexa-ai", async (req, res) => {
