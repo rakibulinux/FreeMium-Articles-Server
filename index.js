@@ -405,8 +405,13 @@ async function run() {
       const query = {};
       const article = await articleCollection
         .find(query)
-        .sort({ articleSubmitDate: -1 })
+        // .sort({ articleSubmitDate: -1 })
         .toArray();
+      res.send(article);
+    });
+    app.get("/limit-articles", async (req, res) => {
+      const query = {};
+      const article = await articleCollection.find(query).limit(3).toArray();
       res.send(article);
     });
 
@@ -1872,7 +1877,7 @@ async function run() {
       //   res.status(500).json({ success: false, message: "Server error" });
       // }
     });
-  } finally {
+    } finally {
   }
 }
 //
