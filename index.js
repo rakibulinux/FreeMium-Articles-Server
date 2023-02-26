@@ -349,7 +349,7 @@ async function run() {
     //       res.status(500).json({ error: 'Internal server error' });
     //       return;
     //     }
-  
+
     //     // Send back the results as a JSON response
     //     res.json({ results });
     //   });
@@ -367,7 +367,7 @@ async function run() {
         .find({ $text: { $search: query } })
         .toArray();
       console.log(suggestions);
-    res.json({ userName, suggestions });
+      res.json({ userName, suggestions });
     });
     // limit depend on the user call
     app.get("/all-users/:selectNumber", async (req, res) => {
@@ -443,7 +443,7 @@ async function run() {
 
       res.send({ isAdmin: adminUser?.role === "admin" });
     });
-// all articles
+    // all articles
     app.get("/allArticles", async (req, res) => {
       const query = {};
       // const article = await articleCollection.find(query).toArray();
@@ -455,7 +455,11 @@ async function run() {
     });
     app.get("/limit-articles", async (req, res) => {
       const query = {};
-      const article = await articleCollection.find(query).limit(3).toArray();
+      const article = await articleCollection
+        .find(query)
+        .limit(3)
+        .sort({ articleSubmitDate: -1 })
+        .toArray();
       res.send(article);
     });
 
@@ -509,7 +513,7 @@ async function run() {
       const result = await categoryButtonCollection.insertOne(category);
       res.send(result);
     });
-    // category button api   
+    // category button api
     app.get("/categoryButton", async (req, res) => {
       const query = {};
       const categoryButton = await categoryButtonCollection
