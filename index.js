@@ -13,11 +13,15 @@ const httpServer = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "*",
     // or with an array of origins ["http://localhost:3000", "https://freemiumarticles.web.app"]
     methods: ["GET", "POST"],
   },
 });
+const nodemailer = require("nodemailer");
+const mg = require("nodemailer-mailgun-transport");
+// const sgMail = require('@sendgrid/mail');
+// sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const axios = require("axios");
 // step one
@@ -28,7 +32,6 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration);
 // cookie parser
 const cookieParser = require("cookie-parser");
-const { log } = require("console");
 const port = process.env.PORT;
 
 // middlewares
@@ -41,34 +44,78 @@ app.use((req, res, next) => {
   next();
 });
 
+/*===============
+all socket work
+================= */
 let users = [];
-// add log in  user 
-const addUsers=(userId,socketId,userInfo)=>{
-  const checkUser = users.some(u=>u._id === userId)
-  if(!checkUser){
-    users.push({userId,socketId,userInfo})
+// add log in  user
+const addUsers = (userId, socketId, userInfo) => {
+  const checkUser = users.some((u) => u._id === userId);
+  if (!checkUser) {
+    users.push({ userId, socketId, userInfo });
   }
-}
+};
+
+// const users = {};
 
 // remove log out user
-const userRemove =(socketId)=>{
-  users = users?.filter(u=>u?.socketId !== socketId)
-}
+const userRemove = (socketId) => {
+  users = users?.filter((u) => u?.socketId !== socketId);
+};
+const findFriend = (id) => {
+  return users.find((u) => u?.userId === id);
+};
 // Connection
 io.on("connection", (socket) => {
-  // console.log("Client connected");  
-  socket.on("addUser", (singleUsersId,singleUsers) => {
-    addUsers(singleUsersId,socket.id,singleUsers)
-     
+  socket.on("addUser", (singleUsersId, singleUsers) => {
+    addUsers(singleUsersId, socket.id, singleUsers);
+
     io.emit("getUsers", users);
   });
-  socket.on("disconnect", () => {
-    userRemove(socket.id)
-    io.emit("getUsers", users);
-    // console.log("Client disconnected");
+  // send message
+  socket.on("sendMessage", (data) => {
+    const user = findFriend(data.reciverId);
+
+    if (user !== undefined) {
+      socket.to(user.socketId).emit("getMessage", {
+        senderId: data?.senderId,
+        senderName: data?.senderName,
+        reciverId: data?.reciverId,
+        message: data?.message,
+        createAt: data?.date,
+      });
+    }
+    // io.emit("getMessage", users);
+  });
+
+  // get typing message
+  socket.on("typingMessage", (data) => {
+    const user = findFriend(data?.reciverId);
+    if (user !== undefined) {
+      socket.to(user?.socketId).emit("getTypingMessage", {
+        senderId: data?.senderId,
+        reciverId: data?.reciverId,
+        msg: data?.msg,
+      });
+    }
   });
 });
 
+io.on("disconnect", () => {
+  userRemove(socket.id);
+  io.emit("getUsers", users);
+});
+// user disconnet
+// socket.on("disconnect", () => {
+//   // remove the user from our list of users
+//   delete users[socket.id];
+//   // notify the other users that a user has left
+//   socket.broadcast.emit("user left", socket.id);
+// });
+
+/*===============
+sslcommerz
+================*/
 
 // sslcommerz
 const store_id = process.env.STORE_ID;
@@ -87,11 +134,12 @@ const client = new MongoClient(uri, {
 //Verify JWT function
 function verifyJWT(req, res, next) {
   const authHeader = req.headers.authorization;
-
+  //
   if (!authHeader) {
     return res.status(403).send("Not authorization");
   }
   const token = authHeader.split(" ")[1];
+
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (error, decoded) {
     if (error) {
       return res.status(403).send({ message: "Forbidden" });
@@ -102,17 +150,91 @@ function verifyJWT(req, res, next) {
   });
 }
 
-//=============Verify authmiddleware function
-
-const authMiddleware = async (req, res, next) => {
-  // const {freeMiumToken} = req.cookie;
-
-  next();
-};
 // check main route
 app.get("/", (req, res) => {
   res.send(`FreeMium Articles running on port ${port}`);
 });
+
+function sendPaymentEmail(PaidUserEmail, paidUser) {
+  const { name, phone, email, amount, transactionId } = paidUser;
+  //   let transporter = nodemailer.createTransport({
+  //     host: 'smtp.sendgrid.net',
+  //     port: 587,
+  //     auth: {
+  //         user: "apikey",
+  //         pass: process.env.SENDGRID_API_KEY
+  //     }
+  //  })
+  const auth = {
+    auth: {
+      api_key: process.env.EMAIL_SEND_KEY,
+      domain: process.env.EMAIL_SEND_DOMAIN,
+    },
+  };
+
+  const transporter = nodemailer.createTransport(mg(auth));
+
+  transporter.sendMail(
+    {
+      from: "md.sifat.ur.rahman2702@gmail.com", // verified sender email
+      to: PaidUserEmail, // recipient email
+      subject: "Membership of FreeMium Articles", // Subject line
+      text: "Congratulations you have got the membership of FreeMium website.", // plain text body
+      html: `<head>
+  <style>
+        table {
+          border-collapse: collapse;
+          
+        }
+        th, td {
+          
+          padding: 26px;
+          border: 1px solid black;
+        }
+        th {
+          background-color: #ddd;
+        }
+        
+      </style>
+      </head>
+      <h1>Congratulations you have got the membership of FreeMium website. </h1>
+  <table>
+  <tr>
+    <th>Name</th>
+    <th>${name}</th>
+    
+  </tr>
+  <tr>
+    <td>Email</td>
+    <td>${email}</td>
+    
+  </tr>
+  <tr>
+    <td>Phone Number</td>
+    <td>${phone}</td>
+    
+  </tr>
+  <tr>
+    <td>Amount</td>
+    <td>${amount}</td>
+    
+  </tr>
+  <tr>
+    <td>Transaction Id</td>
+    <td>${transactionId}</td>
+    
+  </tr>
+</table>
+<h3>Save your transaction ID for later use </h3>
+`, // html body
+    },
+    function (error, info) {
+      if (error) {
+      } else {
+      }
+    }
+  );
+}
 
 async function run() {
   try {
@@ -274,7 +396,7 @@ async function run() {
     app.get("/category/:name", async (req, res) => {
       const categoryName = req.params.name;
       const query = { category: categoryName };
-      // console.log(typeof(categoryName));
+      //
       const result = await articleCollection.find(query).toArray();
       res.send([{ categoryName: categoryName }, result]);
     });
@@ -316,8 +438,10 @@ async function run() {
     // Get admin user permission
     app.get("/users/admin/:email", verifyJWT, verifyAdmin, async (req, res) => {
       const email = req.params.email;
+
       const query = { email };
       const adminUser = await usersCollection.findOne(query);
+
       res.send({ isAdmin: adminUser?.role === "admin" });
     });
 // all articles
@@ -414,7 +538,7 @@ async function run() {
           CategoryName: categoryName,
         },
       };
-      // console.log(updatedReviw)
+      //
       const result = await categoryButtonCollection.updateOne(
         filter,
         updatedDoc,
@@ -516,16 +640,29 @@ async function run() {
     });
 
     // Search route
-    app.get("/search", async (req, res) => {
-      try {
-        const query = req.query.q;
-        const results = await articleCollection
-          .find({ $text: { $search: query } })
-          .toArray();
-        res.json(results);
-      } catch (err) {
-        res.status(500).json({ message: err.message });
-      }
+    // app.get("/search", async (req, res) => {
+    //   try {
+    //     const query = req.query.q;
+    //     const results = await articleCollection
+    //       .find({ $text: { $search: query } })
+    //       .toArray();
+    //     res.json(results);
+    //   } catch (err) {
+    //     res.status(500).json({ message: err.message });
+    //   }
+    // });
+
+    app.get("/search/:query", async (req, res) => {
+      const query = req.params.query;
+      const regex = new RegExp(query, "i");
+      const suggestions = await articleCollection
+        .find({ articleTitle: { $regex: regex } }, { articleTitle: 1 })
+        .limit(5)
+        .toArray();
+      const articles = await articleCollection
+        .find({ $text: { $search: query } })
+        .toArray();
+      res.json({ articles, suggestions });
     });
     // Payment gateway sslcommerz setup
     app.post("/payment", async (req, res) => {
@@ -588,12 +725,14 @@ async function run() {
         { $set: { paid: true, paidTime: new Date() } }
       );
       const paidUser = await paymentCollection.findOne({ transactionId });
-      // console.log(paidUser.email)
+      //
       const PaidUserEmail = paidUser.email;
       const userPaid = await usersCollection.updateOne(
         { email: PaidUserEmail },
         { $set: { isPaid: true, paidTime: new Date() } }
       );
+
+      sendPaymentEmail(PaidUserEmail, paidUser);
 
       if (result.modifiedCount > 0) {
         res.redirect(
@@ -606,31 +745,104 @@ async function run() {
       return res.redirect(`${process.env.CLIENT_URL}/fail`);
     });
 
-    // Handle socket connection
-    io.on("connection", (socket) => {
-      console.log("Client connected");
+    // Create a new notification
+    const createNotification = (
+      userId,
+      senderId,
+      senderName,
+      message,
+      type
+    ) => {
+      const newNotification = {
+        userId: userId,
+        senderName: senderName,
+        senderId: senderId,
+        message: message,
+        type: type,
+        timestamp: new Date(),
+        read: false,
+      };
+
+      notificationCollection.insertOne(newNotification, (err, result) => {
+        if (err) {
+          console.error("Error creating notification:", err);
+        } else {
+          // Emit the new notification to the user's socket
+          io.to(userId).emit("new_notification", result);
+        }
+      });
+    };
+    // Get all notifications for the user
+    // app.get("/notifications/:userId", (req, res) => {
+    //   const userId = req.params.userId;
+    //   notificationCollection
+    //     .find({ userId: userId })
+    //     .sort({ timestamp: -1 })
+    //     .toArray((err, docs) => {
+    //       if (err) {
+    //         res.status(500).send("Error retrieving notifications");
+    //       } else {
+    //         res.send(docs);
+    //       }
+    //     });
+    // });
+
+    app.get("/notifications/:userId", (req, res) => {
+      const userId = req.params.userId;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 5;
+      const skip = (page - 1) * limit;
+
+      notificationCollection
+        .find({ userId: userId })
+        .sort({ timestamp: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray((err, docs) => {
+          if (err) {
+            res.status(500).send("Error retrieving notifications");
+          } else {
+            res.send(docs);
+          }
+        });
     });
 
-    // Handle new notification
+    // Create a new notification
     app.post("/notifications", (req, res) => {
-      const notification = req.body;
-      notificationCollection.insertOne(notification, (err, result) => {
-        if (err) throw err;
-        io.emit("notification", notification);
-        res.status(201).send(`Notification inserted: ${result.ops[0]._id}`);
+      const newNotification = {
+        message: req.body.message,
+        timestamp: new Date(),
+        read: false,
+      };
+
+      notificationCollection.insertOne(newNotification, (err, result) => {
+        if (err) {
+          res.status(500).send("Error creating notification");
+        } else {
+          // Emit the new notification to all clients
+          io.emit("new_notification", result.ops[0]);
+          res.send(result.ops[0]);
+        }
       });
     });
 
-    app.get("/notifications/:userId", (req, res) => {
-      notificationCollection
-        .find({ userId: req.params.userId })
-        .toArray((err, notifications) => {
+    // Update a notification as read
+    app.put("/notifications/:id", (req, res) => {
+      const id = req.params.id;
+
+      notificationCollection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: { read: true } },
+        (err, result) => {
           if (err) {
-            res.status(500).send(err);
+            res.status(500).send("Error updating notification");
           } else {
-            res.status(200).send(notifications);
+            // Emit the updated notification to all clients
+            io.emit("notification_updated", result.value);
+            res.send(result);
           }
-        });
+        }
+      );
     });
 
     /*===================
@@ -700,7 +912,7 @@ async function run() {
     app.post("/replyComment/:id", async (req, res) => {
       const id = req.params.id;
       const replyData = req.body;
-      console.log(replyData);
+
       commentCollection.updateOne(
         { _id: ObjectId(id) },
         { $addToSet: { replyComment: replyData } },
@@ -714,14 +926,14 @@ async function run() {
       );
     });
 
-    // update COmment
+    // update Comment
 
     // app.put("/comment/:id", async (req, res) => {
     //   const id = req.params.id;
     //   // const query={_id:ObjectId(id)}
 
     //   const updatedComment = req.body.updatedComment;
-    //   console.log(updatedComment);
+    //
     //   const filter = { _id: ObjectId(id) };
     //   const options = { upsert: true };
     //   const updatedDoc = {
@@ -729,7 +941,7 @@ async function run() {
     //       comment: updatedComment,
     //     },
     //   };
-    //   console.log(updatedReviw)
+    //
     //   const result = await commentCollection.updateOne(
     //     filter,
     //     updatedDoc,
@@ -771,7 +983,7 @@ async function run() {
     // delete comment
     app.delete("/comment/deleteComment/:id", async (req, res) => {
       const id = req.params.id;
-      // console.log(id);
+      //
       const filter = { _id: ObjectId(id) };
       const result = await commentCollection.deleteOne(filter);
 
@@ -813,6 +1025,7 @@ async function run() {
       res.send(result);
     });
 
+    // Get Premium or Free Story Details API
     app.get("/view-story/:id", async (req, res) => {
       const id = req.params.id;
       const storyId = { _id: ObjectId(id) };
@@ -871,9 +1084,8 @@ async function run() {
 
       // user is logged in
       const user = await usersCollection.findOne({ _id: ObjectId(userId) });
-
       if (story.isPaid && user.isPaid) {
-        return res.send(story);
+        return res.json(story);
       } else if (story.userId === userId) {
         return res.send(story);
       } else if (story.isPaid && userId) {
@@ -900,154 +1112,14 @@ async function run() {
         res.send(story);
       }
     });
+    // Get Premium or Free Story Details API End
 
-    app.post("/view-story/:id/upvote", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: ObjectId(id) };
-      const post = await articleCollection.findOne(filter);
-      // console.log(post);
-      post.upVotes += 1;
-      // await post.save();
-      res.json(post);
-    });
-
-    app.post("/view-story/:id/downvote", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: ObjectId(id) };
-      const post = await articleCollection.findOne(filter);
-      // console.log(post);
-      post.downVotes -= 1;
-      // await post.save();
-      res.json(post);
-    });
-
-    /*============================
-      upVote  api
-    ============================*/
-    app.post("/users/upVote", (req, res) => {
-      const storyId = req.body.storyId;
-      const upVoteId = req.body.upVoteId;
-
-      articleCollection.updateOne(
-        { _id: ObjectId(storyId) },
-        { $addToSet: { upVote: upVoteId } },
-        (error, result) => {
-          if (error) {
-            res.status(500).send({ error: "Error updating user" });
-          } else {
-            res.status(200).send({ message: "Successfully upVoteing user" });
-          }
-        }
-      );
-      // remov downvote id
-      articleCollection.updateOne(
-        { _id: ObjectId(storyId) },
-        { $pull: { downVote: upVoteId } }
-      );
-    });
-
-    app.post("/users/decUpVote", (req, res) => {
-      const storyId = req.body.storyId;
-      const decUpVoteId = req.body.decUpVoteId;
-      articleCollection.updateOne(
-        { _id: ObjectId(storyId) },
-        { $pull: { upVote: decUpVoteId } },
-        (error, result) => {
-          if (error) {
-            res.status(500).send({ error: "Error updating user" });
-          } else {
-            res.status(200).send({ message: "Successfully decUpVoteing user" });
-          }
-        }
-      );
-    });
-
-    app.get("/users/:storyId/upVote/:upVoteId", (req, res) => {
-      const storyId = req.params.storyId;
-      const upVoteId = req.params.upVoteId;
-      articleCollection.findOne(
-        { _id: ObjectId(storyId), upVote: upVoteId },
-        (error, result) => {
-          if (error) {
-            res.status(500).send({ error: "Error fetching user" });
-          } else {
-            if (result) {
-              res.status(200).send({ upVote: true });
-            } else {
-              res.status(200).send({ upVote: false });
-            }
-          }
-        }
-      );
-    });
-    /*============================
-     down vote api
-    ============================*/
-    app.post("/users/downVote", (req, res) => {
-      const storyId = req.body.storyId;
-      const downVoteId = req.body.downVoteId;
-
-      articleCollection.updateOne(
-        { _id: ObjectId(storyId) },
-        { $addToSet: { downVote: downVoteId } },
-        (error, result) => {
-          if (error) {
-            res.status(500).send({ error: "Error updating user" });
-          } else {
-            res.status(200).send({ message: "Successfully upVoteing user" });
-          }
-        }
-      );
-      // remove upvote id
-      articleCollection.updateOne(
-        { _id: ObjectId(storyId) },
-        { $pull: { upVote: downVoteId } }
-      );
-    });
-
-    app.post("/users/decDownVote", (req, res) => {
-      const storyId = req.body.storyId;
-      const decDownVoteId = req.body.decDownVoteId;
-      articleCollection.updateOne(
-        { _id: ObjectId(storyId) },
-        { $pull: { downVote: decDownVoteId } },
-        (error, result) => {
-          if (error) {
-            res.status(500).send({ error: "Error updating user" });
-          } else {
-            res.status(200).send({ message: "Successfully decDownVote user" });
-          }
-        }
-      );
-    });
-
-    app.get("/users/:storyId/downVote/:downVoteId", (req, res) => {
-      const storyId = req.params.storyId;
-      const downVoteId = req.params.downVoteId;
-      articleCollection.findOne(
-        { _id: ObjectId(storyId), downVote: downVoteId },
-        (error, result) => {
-          if (error) {
-            res.status(500).send({ error: "Error fetching user" });
-          } else {
-            if (result) {
-              res.status(200).send({ upVote: true });
-            } else {
-              res.status(200).send({ upVote: false });
-            }
-          }
-        }
-      );
-    });
-
-    // save articles
-
+    // Save Articles API
     app.post("/save-article", async (req, res) => {
       const save = req.body;
       const result = await saveArticleCollection.insertOne(save);
       res.send(result);
     });
-
     app.get("/save-article", async (req, res) => {
       const query = {};
       const result = await saveArticleCollection.find(query).toArray();
@@ -1059,31 +1131,17 @@ async function run() {
       });
       res.send({ count });
     });
+    app.delete("/save-article/delete-article/:id", async (req, res) => {
+      const id = req.params.id;
 
-    app.get("/analytics", (req, res) => {
-      // Replace YOUR_API_KEY with your actual API key
-      const apiKey = process.env.FREEMIUM_APP_API_KEY;
-
-      axios
-        .get("https://www.googleapis.com/analytics/v3/data/ga", {
-          params: {
-            ids: `ga:${process.env.FREEMIUM_APP_MEASUREMENT_ID}`,
-            "start-date": "30daysAgo",
-            "end-date": "today",
-            metrics: "ga:sessions",
-          },
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-          },
-        })
-        .then((response) => {
-          res.json(response.data);
-        })
-        .catch((error) => {
-          res.status(500).json({ error: error.message });
-        }); 
+      const filter = { _id: id };
+      const result = await saveArticleCollection.deleteOne(filter);
+      res.send(result);
     });
 
+    // Save Articles API End
+
+    // ChatGPT API
     app.post("/hexa-ai", async (req, res) => {
       // Get the prompt from the request
       const { prompt, userEmail } = req.body;
@@ -1105,12 +1163,12 @@ async function run() {
         question: prompt,
         answer: completion.data.choices[0].text,
       });
-      // console.log(userEmail);
+      //
       res.send(completion.data.choices[0].text);
 
       // try {
       //   const prompt = req.body.prompt;
-      //   console.log(prompt);
+      //
       //   const response = await openai.createCompletion({
       //     model: "text-davinci-003",
       //     prompt: `${prompt}`,
@@ -1144,208 +1202,96 @@ async function run() {
       res.send(historyAns);
     });
 
+    // ChatGPT API End
+
     /*=================
     messaging api
     =================== */
-    // get friend data
+
+    //     const getLastMassage =async(myId,frndId)=>{
+    // const lastMessage =await messagesCollection.find({
+    //   $or: [
+    //         {
+    //           $and:[{senderId:{$eq:myId}},{reciverId:{$eq:frndId}}]
+    //          },
+    //         {
+    //           $and:[{reciverId:{$eq:myId}},{senderId:{$eq:frndId}}]
+    //         },
+    //       ],
+    // }).sort({date:-1})
+    // return lastMessage
+    // }
+
+    // get friend data .sort({ date: -1 }) { sort: { date: -1 } } .sort({date:-1}).limit(1);
     app.get("/friends", async (req, res) => {
-      const id = req.query.myId;
+      const myId = req.query.myId;
+      // let friendMessage =[]
+      const getFriend = await usersCollection
+        .find({
+          _id: { $ne: myId },
+        })
+        .toArray();
 
-      const result = await usersCollection.find({}).toArray();
-      const filter = result.filter((d) => d._id !== id);
+      //       for(let i=0;i<getFriend.length;i++){
+      //         let friendId = getFriend[i]._id
+      // frindObjectIdString = friendId.toString()
+      //         let lastMsg = await getLastMassage(myId,frindObjectIdString)
 
-      // find({database_id: {$ne: id }})
-      res.send(filter);
+      //       }
+
+      res.send(getFriend);
     });
+
     // send message
     app.post("/sendMessage", async (req, res) => {
       const message = req.body.data;
+
       const result = await messagesCollection.insertOne(message);
+      createNotification(
+        message.reciverId,
+        message.senderId,
+        message.senderName,
+        message.message.text,
+        "message"
+      );
+
       res.send(result);
     });
 
- // get message
- app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
-  const frndId = req.params.id;
-  const myId = req.params.myId  
-//  console.log(frndId)
-//  console.log(myId)
-  const result = await messagesCollection.find({}).toArray();
-  const filter = result.filter(m=>m.senderId===myId && m.reciverId===frndId || m.reciverId===myId && m.senderId===frndId)
-  res.send(filter);
-
-});
-
-// send image
-app.post("/send-image", async (req, res) => {
-  const imgMessage = req.body.data;
-  const result = await messagesCollection.insertOne(imgMessage );
-  res.send(result);
-});
-
-    // inbox 
-    app.get('/conversetion',async(req,res)=>{
-      const conversations = await Conversation.find({
-        $or: [
-          { "creator.id": req.user.userid },
-          { "participant.id": req.user.userid },
-        ],
-      });
-
-      res.send(conversations);
-    });
-    // serchc user
-    app.get("/searchUser", async (req, res) => {
-      const user = req.body.user;
-      const searchQuery = user.replace("+88", "");
-      const name_search_regex = new RegExp(escape(searchQuery), "i");
-      if (searchQuery !== "") {
-        const users = await usersCollection.find(
-          {
-            $or: [
-              {
-                name: name_search_regex,
-              },
-            ],
-          },
-          "name avatar"
-        );
-
-        res.json(users);
-      } else {
-        throw createError("You must provide some text to search!");
-      }
-    });
-    // add conversation
-    app.get("/searchUser", async (req, res) => {
-      try {
-        const newConversation = new Conversation({
-          creator: {
-            id: req.user.userid,
-            name: req.user.username,
-            avatar: req.user.avatar || null,
-          },
-          participant: {
-            name: req.body.participant,
-            id: req.body.id,
-            avatar: req.body.avatar || null,
-          },
-        });
-
-        const result = await newConversation.save();
-        res.status(200).json({
-          message: "Conversation was added successfully!",
-        });
-      } catch (err) {
-        res.status(500).json({
-          errors: {
-            common: {
-              msg: err.message,
+    // get message
+    app.get("/sendMessage/:id/getMseeage/:myId", async (req, res) => {
+      const frndId = req.params.id;
+      const myId = req.params.myId;
+      const result = await messagesCollection
+        .find({
+          $or: [
+            {
+              $and: [
+                { senderId: { $eq: myId } },
+                { reciverId: { $eq: frndId } },
+              ],
             },
-          },
-        });
-      }
+            {
+              $and: [
+                { reciverId: { $eq: myId } },
+                { senderId: { $eq: frndId } },
+              ],
+            },
+          ],
+        })
+        .sort({ date: 1 })
+        .toArray();
+
+      // const filter = result.filter(m=>m.senderId===myId && m.reciverId===frndId || m.reciverId===myId && m.senderId===frndId)
+      res.send(result);
+    });
+    // send image
+    app.post("/send-image", async (req, res) => {
+      const imgMessage = req.body.data;
+      const result = await messagesCollection.insertOne(imgMessage);
+      res.send(result);
     });
 
-    // send new message
-    async function sendMessage(req, res, next) {
-      if (req.body.message || (req.files && req.files.length > 0)) {
-        try {
-          // save message text/attachment in database
-          let attachments = null;
-
-          if (req.files && req.files.length > 0) {
-            attachments = [];
-
-            req.files.forEach((file) => {
-              attachments.push(file.filename);
-            });
-          }
-
-          const newMessage = new Message({
-            text: req.body.message,
-            attachment: attachments,
-            sender: {
-              id: req.user.userid,
-              name: req.user.username,
-              avatar: req.user.avatar || null,
-            },
-            receiver: {
-              id: req.body.receiverId,
-              name: req.body.receiverName,
-              avatar: req.body.avatar || null,
-            },
-            conversation_id: req.body.conversationId,
-          });
-
-          const result = await newMessage.save();
-
-          // emit socket event
-          global.io.emit("new_message", {
-            message: {
-              conversation_id: req.body.conversationId,
-              sender: {
-                id: req.user.userid,
-                name: req.user.username,
-                avatar: req.user.avatar || null,
-              },
-              message: req.body.message,
-              attachment: attachments,
-              date_time: result.date_time,
-            },
-          });
-
-          res.status(200).json({
-            message: "Successful!",
-            data: result,
-          });
-        } catch (err) {
-          res.status(500).json({
-            errors: {
-              common: {
-                msg: err.message,
-              },
-            },
-          });
-        }
-      } else {
-        res.status(500).json({
-          errors: {
-            common: "message text or attachment is required!",
-          },
-        });
-      }
-    }
-
-    app.post("/message", (req, res) => {
-      const { sender, recipient, message } = req.body;
-      // insert the message into the database
-      messagesCollection.insertOne(
-        {
-          sender,
-          recipient,
-          message,
-          timestamp: new Date(),
-        },
-        (err, result) => {
-          if (err) {
-            return res.status(500).send({ error: err });
-          }
-          return res.send({ message: "Message sent successfully" });
-        }
-      );
-    });
-
-    app.get("/messages", (req, res) => {
-      messagesCollection.find({}).toArray((err, messages) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).send(err);
-        }
-        res.send(messages);
-        client.close();
-      });
-    });
     // Create endpoint for getting all conversations
     app.get("/conversations", async (req, res) => {
       // Find all conversations
@@ -1381,41 +1327,11 @@ app.post("/send-image", async (req, res) => {
       res.json({ id: result.insertedId });
     });
 
-    // Create endpoint for adding a new message to a conversation
-    app.post("/conversations/:id/messages", async (req, res) => {
-      try {
-        const conversationId = req.params.id;
-        const newMessage = req.body;
-
-        // Find the conversation with the specified id
-        const conversation = await messagesCollection.findOne({
-          _id: ObjectId(conversationId),
-        });
-
-        // Push the new message to the conversation's messages array
-        conversation.messages.push(newMessage);
-
-        // Save the updated conversation back to the database
-        await conversationsCollection.updateOne(
-          { _id: ObjectId(conversationId) },
-          { $set: { messages: conversation.messages } }
-        );
-
-        // Return a success response
-        res.status(200).json({ message: "Message added successfully" });
-      } catch (error) {
-        console.error(error);
-        res
-          .status(500)
-          .json({ error: "An error occurred while adding the message" });
-      }
-    });
-
     // Endpoint to import story
     app.post("/import-story", async (req, res) => {
       try {
         const { url, extra } = req.body;
-        console.log(url, extra);
+
         const {
           userId,
           userEmail,
@@ -1460,95 +1376,77 @@ app.post("/send-image", async (req, res) => {
       }
     });
 
-    // Get all reviews for a specific user
+    // Get all stories for a specific user
     app.get("/my-stories", async (req, res) => {
       const email = req.query.email;
       let query = { userEmail: email };
       const articles = await articleCollection.find(query).toArray();
       res.send(articles);
     });
-    app.delete("/save-article/delete-article/:id", async (req, res) => {
-      const id = req.params.id;
-      console.log(id);
-      const filter = { _id: id };
-      const result = await saveArticleCollection.deleteOne(filter);
-      res.send(result);
+
+    // Get all stories for a specific user
+    app.get("/my-stories-3", async (req, res) => {
+      const email = req.query.email;
+      let query = { userEmail: email };
+      const articles = await articleCollection.find(query).limit(3).toArray();
+      res.send(articles);
     });
-    // app.post("/message", (req, res) => {
-    //   const { sender, recipient, message } = req.body;
-    //   // insert the message into the database
-    //   messagesCollection.insertOne(
-    //     {
-    //       sender,
-    //       recipient,
-    //       message,
-    //       timestamp: new Date(),
-    //     },
-    //     (err, result) => {
-    //       if (err) {
-    //         return res.status(500).send({ error: err });
-    //       }
-    //       return res.send({ message: "Message sent successfully" });
-    //     }
-    //   );
-    // });
 
-    // app.get("/messages", (req, res) => {
-    //   messagesCollection.find({}).toArray((err, messages) => {
-    //     if (err) {
-    //       console.error(err);
-    //       return res.status(500).send(err);
-    //     }
-    //     res.send(messages);
-    //     client.close();
-    //   });
-    // });
+    // UpVote & DownVote API
+    app.post("/upvote-story/:id/upvote", async (req, res) => {
+      const vote = req.body.vote;
 
-    // app.post("/sendMessage", (req, res) => {
-    //   const { sender, recipient, message } = req.body;
-    //   // insert the message into the database
-    //   messagesCollection.insertOne(
-    //     {
-    //       sender,
-    //       recipient,
-    //       message,
-    //       timestamp: new Date(),
-    //     },
-    //     (err, result) => {
-    //       if (err) {
-    //         return res.status(500).send({ error: err });
-    //       }
-    //       return res.send({ message: "Message sent successfully" });
-    //     }
-    //   );
-    // });
-    // // Express route for retrieving messages for a user
-    // app.get("/getMessages/:recipient", async (req, res) => {
-    //   try {
-    //     const recipient = req.params.recipient;
+      if (vote !== "upvote" && vote !== "downvote") {
+        res.status(400).json({ error: "Invalid vote type" });
+        return;
+      }
+      const post = await articleCollection.findOne({
+        _id: ObjectId(req.params.id),
+      });
 
-    //     // Retrieve the messages from the database
-    //     const messages = messagesCollection.find({ recipient });
+      if (!post) {
+        res.status(404).json({ error: "Post not found" });
+        return;
+      }
+      const update = {};
+      if (vote === "upvote") {
+        update.$inc = { upvotes: 1 };
+        if (post.downvotes > 0) {
+          update.$inc.downvotes = -1;
+        }
+      } else if (vote === "downvote") {
+        update.$inc = { downvotes: 1 };
+        if (post.upvotes > 0) {
+          update.$inc.upvotes = -1;
+        }
+      }
+      const updatedPost = await articleCollection.findOneAndUpdate(
+        { _id: ObjectId(req.params.id) },
+        update,
+        { returnOriginal: false }
+      );
+      res.json(updatedPost.value);
+    });
 
-    //     return res.status(200).json({ messages });
-    //   } catch (error) {
-    //     return res.status(500).json({ error: error.message });
-    //   }
-    // });
-
-    // app.get("/messages", (req, res) => {
-    //   // retrieve all messages for the current user
-    //   messagesCollection
-    //     .find({
-    //       $or: [{ sender: req.query.userId }, { recipient: req.query.userId }],
-    //     })
-    //     .toArray((err, messages) => {
-    //       if (err) {
-    //         return res.status(500).send({ error: err });
-    //       }
-    //       return res.send({ messages });
-    //     });
-    // });
+    app.post("/downvote-story/:id/downvote", async (req, res) => {
+      const { id } = req.params;
+      const storyId = { _id: ObjectId(id) };
+      const { userId } = req.body;
+      try {
+        const id = req.params.id;
+        const db = client.db();
+        const post = await articleCollection.findOneAndUpdate(
+          { _id: ObjectId(id) },
+          { $inc: { downvotes: 1 } },
+          { returnOriginal: false }
+        );
+        res.json(post);
+      } catch (err) {
+        console.error(err.message);
+        res.status(500).send("Server Error");
+      }
+    });
+    // UpVote & DownVote API End
   } finally {
   }
 }
@@ -1556,5 +1454,5 @@ app.post("/send-image", async (req, res) => {
 run().catch((err) => console.error(err));
 
 httpServer.listen(port, () => {
-  console.log("API running in port: " + port);
+  console.log(`FreeMium Server is Running on Port ${port}`);
 });
