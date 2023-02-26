@@ -634,6 +634,16 @@ async function run() {
         .toArray();
       res.json({ articles, suggestions });
     });
+
+    // Search articles by title
+    // app.get("/search", (req, res) => {
+    //   const query = req.query.q.toLowerCase();
+    //   const results = articleCollection.filter((article) =>
+    //     article.articleTitle.toLowerCase().includes(query)
+    //   );
+    //   res.json({ results });
+    // });
+
     // Payment gateway sslcommerz setup
     app.post("/payment", async (req, res) => {
       const paymentUser = req.body;
