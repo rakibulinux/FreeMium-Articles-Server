@@ -417,7 +417,16 @@ async function run() {
 
     app.get("/allArticles", async (req, res) => {
       const query = {};
-      const article = await articleCollection.find(query).toArray();
+      // const article = await articleCollection.find(query).toArray();
+      const article = await articleCollection
+        .find(query)
+        // .sort({ articleSubmitDate: -1 })
+        .toArray();
+      res.send(article);
+    });
+    app.get("/limit-articles", async (req, res) => {
+      const query = {};
+      const article = await articleCollection.find(query).limit(3).toArray();
       res.send(article);
     });
 
@@ -743,11 +752,31 @@ async function run() {
       });
     };
     // Get all notifications for the user
+    // app.get("/notifications/:userId", (req, res) => {
+    //   const userId = req.params.userId;
+    //   notificationCollection
+    //     .find({ userId: userId })
+    //     .sort({ timestamp: -1 })
+    //     .toArray((err, docs) => {
+    //       if (err) {
+    //         res.status(500).send("Error retrieving notifications");
+    //       } else {
+    //         res.send(docs);
+    //       }
+    //     });
+    // });
+
     app.get("/notifications/:userId", (req, res) => {
       const userId = req.params.userId;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 5;
+      const skip = (page - 1) * limit;
+
       notificationCollection
         .find({ userId: userId })
         .sort({ timestamp: -1 })
+        .skip(skip)
+        .limit(limit)
         .toArray((err, docs) => {
           if (err) {
             res.status(500).send("Error retrieving notifications");
