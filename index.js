@@ -417,7 +417,16 @@ async function run() {
 
     app.get("/allArticles", async (req, res) => {
       const query = {};
-      const article = await articleCollection.find(query).toArray();
+      // const article = await articleCollection.find(query).toArray();
+      const article = await articleCollection
+        .find(query)
+        // .sort({ articleSubmitDate: -1 })
+        .toArray();
+      res.send(article);
+    });
+    app.get("/limit-articles", async (req, res) => {
+      const query = {};
+      const article = await articleCollection.find(query).limit(3).toArray();
       res.send(article);
     });
 
