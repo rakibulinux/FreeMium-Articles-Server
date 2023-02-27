@@ -1,5 +1,6 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
+const compression = require("compression");
 require("dotenv").config();
 const SSLCommerzPayment = require("sslcommerz-lts");
 const http = require("http");
@@ -37,6 +38,7 @@ const port = process.env.PORT;
 // middlewares
 app.use(express.json());
 app.use(cookieParser());
+app.use(compression());
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
