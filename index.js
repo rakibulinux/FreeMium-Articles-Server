@@ -357,7 +357,6 @@ async function run() {
     // search user
     app.get("/writer-search/:query", async (req, res) => {
       const query = req.params.query;
-      console.log(query);
       const regex = new RegExp(query, "i");
       // console.log(regex);
       const suggestions = await usersCollection
@@ -366,7 +365,6 @@ async function run() {
       const userName = await usersCollection
         .find({ $text: { $search: query } })
         .toArray();
-      console.log(suggestions);
       res.json({ userName, suggestions });
     });
     // delete user
@@ -456,7 +454,7 @@ async function run() {
       // const article = await articleCollection.find(query).toArray();
       const article = await articleCollection
         .find(query)
-        // .sort({ articleSubmitDate: -1 })
+        .sort({ timestamp: -1 })
         .toArray();
       res.send(article);
     });
@@ -465,7 +463,7 @@ async function run() {
       const article = await articleCollection
         .find(query)
         .limit(3)
-        .sort({ articleSubmitDate: -1 })
+        .sort({ timestamp: -1 })
         .toArray();
       res.send(article);
     });
@@ -570,9 +568,72 @@ async function run() {
     ======================*/
     // store api
     app.post("/add-story", async (req, res) => {
-      const body = req.body;
-      const story = await articleCollection.insertOne(body);
-      res.send(story);
+      try {
+        const {
+          articleDetails,
+          userId,
+          userEmail,
+          writerName,
+          writerImg,
+          articleTitle,
+          articleRead,
+          articleImg,
+          category,
+          articleType,
+        } = req.body;
+
+        // Create a new story
+        const story = await articleCollection.insertOne({
+          articleDetails,
+          userId,
+          userEmail,
+          writerName,
+          writerImg,
+          articleTitle,
+          timestamp: new Date(),
+          articleRead,
+          articleImg,
+          category,
+          articleType,
+        });
+
+        // Fetch the list of followers for the user who posted the story
+        const user = await usersCollection.findOne({
+          _id: new ObjectId(userId),
+        });
+        const followers = user.following || [];
+
+        // Create a notification for each follower
+        for (const followerId of followers) {
+          await notificationCollection.insertOne({
+            userId: followerId,
+            senderName: user.name,
+            senderPicture: user.picture,
+            senderId: userId,
+            message: `${articleTitle}`,
+            timestamp: new Date(),
+            type: "Story",
+            read: false,
+          });
+          const userUID = user._id.valueOf();
+          // Emit the new notification to the follower's socket connection
+          io.to(`user:${followerId}`).emit("new_notification", {
+            userId: followerId,
+            senderName: user.name,
+            senderPicture: user.picture,
+            senderId: userId,
+            message: `${articleTitle}`,
+            timestamp: new Date(),
+            type: "Story",
+            read: false,
+          });
+        }
+
+        res.send(story);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send("Error creating story");
+      }
     });
 
     // Payment route
@@ -683,6 +744,16 @@ async function run() {
         .toArray();
       res.json({ articles, suggestions });
     });
+
+    // Search articles by title
+    // app.get("/search", (req, res) => {
+    //   const query = req.query.q.toLowerCase();
+    //   const results = articleCollection.filter((article) =>
+    //     article.articleTitle.toLowerCase().includes(query)
+    //   );
+    //   res.json({ results });
+    // });
+
     // Payment gateway sslcommerz setup
     app.post("/payment", async (req, res) => {
       const paymentUser = req.body;
@@ -769,12 +840,14 @@ async function run() {
       userId,
       senderId,
       senderName,
+      senderImage,
       message,
       type
     ) => {
       const newNotification = {
         userId: userId,
         senderName: senderName,
+        senderPicture: senderImage,
         senderId: senderId,
         message: message,
         type: type,
@@ -1270,8 +1343,9 @@ async function run() {
         message.reciverId,
         message.senderId,
         message.senderName,
+        message.senderImage,
         message.message.text,
-        "message"
+        "Message"
       );
 
       res.send(result);
@@ -1356,7 +1430,7 @@ async function run() {
           userEmail,
           writerName,
           writerImg,
-          articleSubmitDate,
+          timestamp,
           articleRead,
           category,
         } = extra;
@@ -1384,7 +1458,7 @@ async function run() {
           writerName,
           writerImg,
           articleTitle,
-          articleSubmitDate,
+          timestamp,
           articleRead,
           articleImg,
           category,
@@ -1399,7 +1473,10 @@ async function run() {
     app.get("/my-stories", async (req, res) => {
       const email = req.query.email;
       let query = { userEmail: email };
-      const articles = await articleCollection.find(query).toArray();
+      const articles = await articleCollection
+        .find(query)
+        .sort({ timestamp: -1 })
+        .toArray();
       res.send(articles);
     });
 
