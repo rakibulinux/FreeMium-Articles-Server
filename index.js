@@ -340,6 +340,42 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    // app.get('/searchUser/:query', (req, res) => {
+    //   const query = req.query.query;
+
+    //   usersCollection.find({ $text: { $search: query } }).toArray((err, results) => {
+    //     if (err) {
+    //       console.error('Error searching MongoDB:', err);
+    //       res.status(500).json({ error: 'Internal server error' });
+    //       return;
+    //     }
+
+    //     // Send back the results as a JSON response
+    //     res.json({ results });
+    //   });
+    // });
+    // search user
+    app.get("/writer-search/:query", async (req, res) => {
+      const query = req.params.query;
+      console.log(query);
+      const regex = new RegExp(query, "i");
+      // console.log(regex);
+      const suggestions = await usersCollection
+        .find({ name: { $regex: regex } }, { name: 1 })
+        .toArray();
+      const userName = await usersCollection
+        .find({ $text: { $search: query } })
+        .toArray();
+      console.log(suggestions);
+      res.json({ userName, suggestions });
+    });
+    // delete user
+    app.delete("/writer-delete/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await usersCollection.deleteOne(filter);
+      res.send(result);
+    });
     // limit depend on the user call
     app.get("/all-users/:selectNumber", async (req, res) => {
       const userSelect = req.params.selectNumber;
@@ -414,10 +450,23 @@ async function run() {
 
       res.send({ isAdmin: adminUser?.role === "admin" });
     });
-
+    // all articles
     app.get("/allArticles", async (req, res) => {
       const query = {};
-      const article = await articleCollection.find(query).toArray();
+      // const article = await articleCollection.find(query).toArray();
+      const article = await articleCollection
+        .find(query)
+        // .sort({ articleSubmitDate: -1 })
+        .toArray();
+      res.send(article);
+    });
+    app.get("/limit-articles", async (req, res) => {
+      const query = {};
+      const article = await articleCollection
+        .find(query)
+        .limit(3)
+        .sort({ articleSubmitDate: -1 })
+        .toArray();
       res.send(article);
     });
 
