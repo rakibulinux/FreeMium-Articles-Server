@@ -357,7 +357,6 @@ async function run() {
     // search user
     app.get("/writer-search/:query", async (req, res) => {
       const query = req.params.query;
-      console.log(query);
       const regex = new RegExp(query, "i");
       // console.log(regex);
       const suggestions = await usersCollection
@@ -366,7 +365,6 @@ async function run() {
       const userName = await usersCollection
         .find({ $text: { $search: query } })
         .toArray();
-      console.log(suggestions);
       res.json({ userName, suggestions });
     });
     // delete user
@@ -571,11 +569,33 @@ async function run() {
     // store api
     app.post("/add-story", async (req, res) => {
       try {
-        const body = req.body;
-        const userId = body.userId;
-        const title = body.articleTitle;
+        const {
+          articleDetails,
+          userId,
+          userEmail,
+          writerName,
+          writerImg,
+          articleTitle,
+          articleRead,
+          articleImg,
+          category,
+          articleType,
+        } = req.body;
+
         // Create a new story
-        const story = await articleCollection.insertOne(body);
+        const story = await articleCollection.insertOne({
+          articleDetails,
+          userId,
+          userEmail,
+          writerName,
+          writerImg,
+          articleTitle,
+          timestamp: new Date(),
+          articleRead,
+          articleImg,
+          category,
+          articleType,
+        });
 
         // Fetch the list of followers for the user who posted the story
         const user = await usersCollection.findOne({
@@ -588,19 +608,21 @@ async function run() {
           await notificationCollection.insertOne({
             userId: followerId,
             senderName: user.name,
-            senderId: user._id.valueOf(),
-            message: `${title}`,
+            senderPicture: user.picture,
+            senderId: userId,
+            message: `${articleTitle}`,
             timestamp: new Date(),
             type: "Story",
             read: false,
           });
-
+          const userUID = user._id.valueOf();
           // Emit the new notification to the follower's socket connection
           io.to(`user:${followerId}`).emit("new_notification", {
             userId: followerId,
             senderName: user.name,
-            senderId: user._id,
-            message: `${title}`,
+            senderPicture: user.picture,
+            senderId: userId,
+            message: `${articleTitle}`,
             timestamp: new Date(),
             type: "Story",
             read: false,
@@ -818,12 +840,14 @@ async function run() {
       userId,
       senderId,
       senderName,
+      senderImage,
       message,
       type
     ) => {
       const newNotification = {
         userId: userId,
         senderName: senderName,
+        senderPicture: senderImage,
         senderId: senderId,
         message: message,
         type: type,
@@ -1319,8 +1343,9 @@ async function run() {
         message.reciverId,
         message.senderId,
         message.senderName,
+        message.senderImage,
         message.message.text,
-        "message"
+        "Message"
       );
 
       res.send(result);
