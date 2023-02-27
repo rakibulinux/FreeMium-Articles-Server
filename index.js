@@ -456,7 +456,7 @@ async function run() {
       // const article = await articleCollection.find(query).toArray();
       const article = await articleCollection
         .find(query)
-        // .sort({ articleSubmitDate: -1 })
+        .sort({ timestamp: -1 })
         .toArray();
       res.send(article);
     });
@@ -465,7 +465,7 @@ async function run() {
       const article = await articleCollection
         .find(query)
         .limit(3)
-        .sort({ articleSubmitDate: -1 })
+        .sort({ timestamp: -1 })
         .toArray();
       res.send(article);
     });
@@ -570,9 +570,48 @@ async function run() {
     ======================*/
     // store api
     app.post("/add-story", async (req, res) => {
-      const body = req.body;
-      const story = await articleCollection.insertOne(body);
-      res.send(story);
+      try {
+        const body = req.body;
+        const userId = body.userId;
+        const title = body.articleTitle;
+        // Create a new story
+        const story = await articleCollection.insertOne(body);
+
+        // Fetch the list of followers for the user who posted the story
+        const user = await usersCollection.findOne({
+          _id: new ObjectId(userId),
+        });
+        const followers = user.following || [];
+
+        // Create a notification for each follower
+        for (const followerId of followers) {
+          await notificationCollection.insertOne({
+            userId: followerId,
+            senderName: user.name,
+            senderId: user._id.valueOf(),
+            message: `${title}`,
+            timestamp: new Date(),
+            type: "Story",
+            read: false,
+          });
+
+          // Emit the new notification to the follower's socket connection
+          io.to(`user:${followerId}`).emit("new_notification", {
+            userId: followerId,
+            senderName: user.name,
+            senderId: user._id,
+            message: `${title}`,
+            timestamp: new Date(),
+            type: "Story",
+            read: false,
+          });
+        }
+
+        res.send(story);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send("Error creating story");
+      }
     });
 
     // Payment route
@@ -1366,7 +1405,7 @@ async function run() {
           userEmail,
           writerName,
           writerImg,
-          articleSubmitDate,
+          timestamp,
           articleRead,
           category,
         } = extra;
@@ -1394,7 +1433,7 @@ async function run() {
           writerName,
           writerImg,
           articleTitle,
-          articleSubmitDate,
+          timestamp,
           articleRead,
           articleImg,
           category,
@@ -1409,7 +1448,10 @@ async function run() {
     app.get("/my-stories", async (req, res) => {
       const email = req.query.email;
       let query = { userEmail: email };
-      const articles = await articleCollection.find(query).toArray();
+      const articles = await articleCollection
+        .find(query)
+        .sort({ timestamp: -1 })
+        .toArray();
       res.send(articles);
     });
 
