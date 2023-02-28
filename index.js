@@ -14,9 +14,9 @@ const httpServer = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: ["http://localhost:3000", "https://freemiumarticles.web.app"],
     // or with an array of origins ["http://localhost:3000", "https://freemiumarticles.web.app"]
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   },
 });
 const nodemailer = require("nodemailer");
@@ -856,7 +856,7 @@ async function run() {
         timestamp: new Date(),
         read: false,
       };
-
+      console.log(senderPicture, senderImage);
       notificationCollection.insertOne(newNotification, (err, result) => {
         if (err) {
           console.error("Error creating notification:", err);
@@ -1349,7 +1349,7 @@ async function run() {
         message.message.text,
         "Message"
       );
-
+      console.log(message.senderImage);
       res.send(result);
     });
 
