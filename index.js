@@ -1447,7 +1447,6 @@ async function run() {
           userEmail,
           writerName,
           writerImg,
-          timestamp,
           articleRead,
           category,
         } = extra;
@@ -1475,7 +1474,7 @@ async function run() {
           writerName,
           writerImg,
           articleTitle,
-          timestamp,
+          timestamp: new Date(),
           articleRead,
           articleImg,
           category,
