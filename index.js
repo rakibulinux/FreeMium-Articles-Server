@@ -1119,6 +1119,15 @@ async function run() {
       res.send(result);
     });
 
+    // Get UpVote story
+    app.get("/vote-story/:id", async (req, res) => {
+      const id = req.params.id;
+      const storyId = { _id: ObjectId(id) };
+      const query = { storyId };
+      const story = articleCollection.findOne(query);
+      res.json(story);
+    });
+
     // Get Premium or Free Story Details API
     app.get("/view-story/:id", async (req, res) => {
       const id = req.params.id;
