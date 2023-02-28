@@ -77,16 +77,15 @@ io.on("connection", (socket) => {
   // send message
   socket.on("sendMessage", (data) => {
     const user = findFriend(data?.reciverId);
-console.log(data)
+    // console.log(data);
     if (user !== undefined) {
-      socket.to(user.socketId).emit("getMessage",
-      {  senderId: data?.senderId,
+      socket.to(user.socketId).emit("getMessage", {
+        senderId: data?.senderId,
         senderName: data?.senderName,
         reciverId: data?.reciverId,
         message: data?.message,
         createAt: data?.date,
-      }
-      );
+      });
     }
     // io.emit("getMessage", users);
   });
@@ -857,7 +856,7 @@ async function run() {
         timestamp: new Date(),
         read: false,
       };
-      console.log(senderPicture, senderImage);
+      // console.log(senderImage);
       notificationCollection.insertOne(newNotification, (err, result) => {
         if (err) {
           console.error("Error creating notification:", err);
@@ -1312,39 +1311,42 @@ async function run() {
     messaging api
     =================== */
 
-        const getLastMassage =async(myId,frndId)=>{
-          // console.log(myId,frndId)
-    const lastMessage =await messagesCollection.findOne({
-      $or: [
-            {
-              $and:[{senderId:{$eq:myId}},{reciverId:{$eq:frndId}}]
-             },
-            {
-              $and:[{reciverId:{$eq:myId}},{senderId:{$eq:frndId}}]
-            },
-          ],
-    });
-    return lastMessage
-    }
+    const getLastMassage = async (myId, frndId) => {
+      // console.log(myId,frndId)
+      const lastMessage = await messagesCollection.findOne({
+        $or: [
+          {
+            $and: [{ senderId: { $eq: myId } }, { reciverId: { $eq: frndId } }],
+          },
+          {
+            $and: [{ reciverId: { $eq: myId } }, { senderId: { $eq: frndId } }],
+          },
+        ],
+      });
+      return lastMessage;
+    };
 
     // get friend data .sort({ date: -1 }) { sort: { date: -1 } } .sort({date:-1}).limit(1);
     app.get("/friends", async (req, res) => {
       const myId = req.query.myId;
-      let friendMessage =[]
+      let friendMessage = [];
       const getFriend = await usersCollection
         .find({
           _id: { $ne: myId },
         })
         .toArray();
 
-            for(let i=0;i<getFriend.length;i++){
-              let friendId = getFriend[i]._id
-      frindObjectIdString = friendId.toString()
-              let lastMsg = await getLastMassage(myId,frindObjectIdString)
-// console.log(lastMsg)
-friendMessage= [...friendMessage,{frindInfo:getFriend[i],messgInfo:lastMsg }]
-// console.log(friendMessage)
-            }
+      for (let i = 0; i < getFriend.length; i++) {
+        let friendId = getFriend[i]._id;
+        frindObjectIdString = friendId.toString();
+        let lastMsg = await getLastMassage(myId, frindObjectIdString);
+        // console.log(lastMsg)
+        friendMessage = [
+          ...friendMessage,
+          { frindInfo: getFriend[i], messgInfo: lastMsg },
+        ];
+        // console.log(friendMessage)
+      }
 
       res.send(friendMessage);
     });
@@ -1362,7 +1364,7 @@ friendMessage= [...friendMessage,{frindInfo:getFriend[i],messgInfo:lastMsg }]
         message.message.text,
         "Message"
       );
-      console.log(message.senderImage);
+      // console.log(message.senderImage);
       res.send(result);
     });
 
